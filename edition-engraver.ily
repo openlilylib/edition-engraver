@@ -32,5 +32,6 @@
 \version "2.19.36"
 \include "oll-core.ily"
 
+% activate edition-engraver module
 #(use-modules (edition-engraver engine))
 

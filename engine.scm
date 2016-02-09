@@ -31,3 +31,53 @@
 
 (define-module (edition-engraver engine))
 
+; use tree structure - but not alist-based!
+(use-modules (edition-engraver tree)(lily))
+
+; a predicate for short input of ly:moment?s
+(define (mom? v)(or (integer? v)(fraction? v)(ly:moment? v)))
+; convert to a moment
+(define (mom->moment m)
+  (cond
+   ((integer? m)(ly:make-moment m/4))
+   ((fraction? m)(ly:make-moment m))
+   ((ly:moment? v) v)
+   (else (ly:make-moment 0/4))))
+
+; a predicate for short input of lists of ly:moment-pairs (measure+moment)
+(define (mom-list? v)(and (list? v)
+                           (every (lambda (p)
+                                    (or (integer? p)
+                                        (and (pair? p)
+                                             (integer? (car p))
+                                             (mom? (cdr p))))
+                                    v))))
+; convert to a list of measure/moment pairs
+(define (mom-list v)
+  (map (lambda (m)
+         (cond
+          ((integer? m)(cons m (ly:make-moment 0 0)))
+          ((and (pair? m)(integer? (car m))(mom? (cdr m)))(cons (car m)(mom->moment (cdr m))))
+          (else (cons 0 (ly:make-moment 0 4)))))
+    v))
+
+; predefine functions - to be implemented in a closure
+
+; the edition-engraver
+(define-public edition-engraver (lambda (context) (list)))
+
+; add/activate edition-tag
+(define-public (add-edition edition-name) #f)
+; remove/deactivate edition-tag
+(define-public (remove-edition edition-name) #f)
+; add modification(s)
+(define-public (edition-mod edition-tag measure moment context-edition-id mods) #f)
+; add modification(s) on multiple times
+(define-public (edition-mod-list edition-tag context-edition-id mods mom-list) #f)
+
+(let ((tags '())
+       (mods (tree-create 'edition-mods)))
+   (set! add-edition (lambda (tag) (if (not (memq tag tags)) (set! tags `(,@tags ,tag)))))
+   (set! remove-edition (lambda (tag) (set! tags (remove (lambda (e) (eq? e tag)) tags))))
+   )
+
