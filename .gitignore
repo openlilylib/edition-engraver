@@ -1,1 +1,6 @@
+# openLilyLib edition-engraver .gitignore rules
+
+*.pdf
+*.eps
+*.log
 *~
