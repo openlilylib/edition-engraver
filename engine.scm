@@ -32,7 +32,13 @@
 (define-module (edition-engraver engine))
 
 ; use tree structure - but not alist-based!
+; TODO: tree.scm should be placed in another more generic module (oll-core?)
 (use-modules (edition-engraver tree)(lily))
+
+
+; TODO: "mom?" should be named more clearly
+; TODO: "mom?" or "mom-pair?" ...
+; TODO: this maybe also a candidate for another module (IIRC there has been some kind of rhythmic location in lily ...)
 
 ; a predicate for short input of ly:moment?s
 (define (mom? v)(or (integer? v)(fraction? v)(ly:moment? v)))
@@ -75,6 +81,7 @@
 ; add modification(s) on multiple times
 (define-public (edition-mod-list edition-tag context-edition-id mods mom-list) #f)
 
+; the closure to store tags and mods
 (let ((tags '())
        (mods (tree-create 'edition-mods)))
    (set! add-edition (lambda (tag) (if (not (memq tag tags)) (set! tags `(,@tags ,tag)))))
