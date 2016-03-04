@@ -4,4 +4,6 @@
 \new Staff = "BACH" \with {
   edition-id = #'(hallo welt)
   \consists #edition-engraver
+} \new Voice = "SING" \with {
+  \consists #edition-engraver
 } \relative c'' { bes4 a c b }

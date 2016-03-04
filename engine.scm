@@ -89,6 +89,7 @@
 ; the closure to store tags and mods
 (let ((tags '())
       (mod-tree (tree-create 'edition-mods)))
+
   ; add edition-tag
   (set! add-edition (lambda (tag) (if (not (memq tag tags)) (set! tags `(,@tags ,tag)))))
   ; remove edition-tag
@@ -113,24 +114,35 @@
             (tree-set! mods mod-path (append tmods mods))
             ))
         )
+
+  ; the edition-engraver
   (set! edition-engraver
         (lambda (context)
-          (let ((context-edition-id '())
-                (context-id (ly:context-id context))
-                (context-name (ly:context-name context)))
+          (let ((context-edition-id '()) ; it receives the context-edition-id from a context-property
+                 (context-name (ly:context-name context)) ; the context name (Voice, Staff or else)
+                 (context-id (ly:context-id context)) ; the context-id assigned by \new Context = "the-id" ...
+                 )
+            ; find mods for the current time-spec
+            (define (find-mods)
+              (let ((mods '()))
+                (for-each
+                 (lambda (tag)
+; TODO!!!
+                   ) tags)))
+
             `(
                (initialize .
-               ,(lambda (trans)
-                  (define (find-edition-id context)
-                    (if (ly:context? context)
-                        (let ((edition-id (ly:context-property context 'edition-id #f)))
-                          (if (and (list? edition-id)(> (length edition-id)))
-                              edition-id
-                              (find-edition-id (ly:context-parent context)))
-                          )
-                        '()))
-                  (set! context-edition-id (find-edition-id context))
-                  (ly:message "edition-engraver: ~A ~A \"~A\"" context-edition-id context-name context-id)
-                  ))
-          ))))
+                 ,(lambda (trans)
+                    (define (find-edition-id context)
+                      (if (ly:context? context)
+                          (let ((edition-id (ly:context-property context 'edition-id #f)))
+                            (if (and (list? edition-id)(> (length edition-id) 0))
+                                edition-id
+                                (find-edition-id (ly:context-parent context)))
+                            )
+                          '()))
+                    (set! context-edition-id (find-edition-id context))
+                    (ly:message "edition-engraver: ~A ~A \"~A\"" context-edition-id context-name context-id)
+                    ))
+               ))))
   )
