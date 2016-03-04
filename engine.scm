@@ -102,7 +102,8 @@
   ; get list of edition-tags
   (set! get-edition-list (lambda () `(,@tags)))
 
-; 
+  ; add edition-mod
+  ; TODO alternative triggers (not only measure/moment)
   (set! edition-mod
         (lambda (edition-tag measure moment context-edition-id mods)
           ))
