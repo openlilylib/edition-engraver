@@ -90,7 +90,7 @@
 (let ((tags '())
       (mod-tree (tree-create 'edition-mods)))
 
-  ; add edition-tag
+  ; add edition-tag (name target?)
   (set! add-edition (lambda (tag) (if (not (memq tag tags)) (set! tags `(,@tags ,tag)))))
   ; remove edition-tag
   (set! remove-edition (lambda (tag) (set! tags (remove (lambda (e) (eq? e tag)) tags))))
@@ -111,24 +111,30 @@
           (let* ((mod-path `(,edition-tag ,measure ,moment ,@context-edition-id))
                  (tmods (tree-get mod-tree mod-path))
                  (tmods (if (list? tmods) tmods '())))
-            (tree-set! mods mod-path (append tmods mods))
+            (tree-set! mod-tree mod-path (append tmods mods))
             ))
         )
 
   ; the edition-engraver
   (set! edition-engraver
         (lambda (context)
-          (let ((context-edition-id '()) ; it receives the context-edition-id from a context-property
+          (let ( (context-edition-id '()) ; it receives the context-edition-id from a context-property
                  (context-name (ly:context-name context)) ; the context name (Voice, Staff or else)
                  (context-id (ly:context-id context)) ; the context-id assigned by \new Context = "the-id" ...
                  )
             ; find mods for the current time-spec
             (define (find-mods)
-              (let ((mods '()))
+              (let ((current-mods '())
+                    (measure (ly:context-property context 'currentBarNumber))
+                    (measurePos (ly:context-property context 'measurePosition))
+                    )
                 (for-each
                  (lambda (tag)
-; TODO!!!
-                   ) tags)))
+                   (let ((mods (tree-get mod-tree `(,tag ,measure ,measurePos ,@context-edition-id ,context-name))))
+                     (if (and (list? mods)(> (length mods) 0))
+                         (set! current-mods `(,@current-mods ,@mods)))
+                     )) tags)
+                current-mods))
 
             `(
                (initialize .
@@ -143,6 +149,13 @@
                           '()))
                     (set! context-edition-id (find-edition-id context))
                     (ly:message "edition-engraver: ~A ~A \"~A\"" context-edition-id context-name context-id)
+                    ))
+               (start-translation-timestep .
+                 ,(lambda (trans)
+                    (for-each
+                     (lambda (mod)
+                       (if (ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
+                       ) (find-mods))
                     ))
                ))))
   )
