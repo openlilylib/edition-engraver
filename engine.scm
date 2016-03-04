@@ -115,6 +115,22 @@
         )
   (set! edition-engraver
         (lambda (context)
-          `()
-          ))
+          (let ((context-edition-id '())
+                (context-id (ly:context-id context))
+                (context-name (ly:context-name context)))
+            `(
+               (initialize .
+               ,(lambda (trans)
+                  (define (find-edition-id context)
+                    (if (ly:context? context)
+                        (let ((edition-id (ly:context-property context 'edition-id #f)))
+                          (if (and (list? edition-id)(> (length edition-id)))
+                              edition-id
+                              (find-edition-id (ly:context-parent context)))
+                          )
+                        '()))
+                  (set! context-edition-id (find-edition-id context))
+                  (ly:message "edition-engraver: ~A ~A \"~A\"" context-edition-id context-name context-id)
+                  ))
+          ))))
   )
