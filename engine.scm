@@ -52,12 +52,12 @@
 
 ; a predicate for short input of lists of ly:moment-pairs (measure+moment)
 (define (mom-list? v)(and (list? v)
-                           (every (lambda (p)
-                                    (or (integer? p)
-                                        (and (pair? p)
-                                             (integer? (car p))
-                                             (mom? (cdr p))))
-                                    v))))
+                          (every (lambda (p)
+                                   (or (integer? p)
+                                       (and (pair? p)
+                                            (integer? (car p))
+                                            (mom? (cdr p))))
+                                   v))))
 ; convert to a list of measure/moment pairs
 (define (mom-list v)
   (map (lambda (m)
@@ -76,6 +76,10 @@
 (define-public (add-edition edition-name) #f)
 ; remove/deactivate edition-tag
 (define-public (remove-edition edition-name) #f)
+; set list of edition-tags
+(define-public (set-edition-list edition-list) #f)
+; get list of edition-tags
+(define-public (get-edition-list) '())
 ; add modification(s)
 (define-public (edition-mod edition-tag measure moment context-edition-id mods) #f)
 ; add modification(s) on multiple times
@@ -83,8 +87,24 @@
 
 ; the closure to store tags and mods
 (let ((tags '())
-       (mods (tree-create 'edition-mods)))
-   (set! add-edition (lambda (tag) (if (not (memq tag tags)) (set! tags `(,@tags ,tag)))))
-   (set! remove-edition (lambda (tag) (set! tags (remove (lambda (e) (eq? e tag)) tags))))
-   )
+      (mods (tree-create 'edition-mods)))
+  ; add edition-tag
+  (set! add-edition (lambda (tag) (if (not (memq tag tags)) (set! tags `(,@tags ,tag)))))
+  ; remove edition-tag
+  (set! remove-edition (lambda (tag) (set! tags (remove (lambda (e) (eq? e tag)) tags))))
+  ; set list of edition-tags
+  (set! set-edition-list
+        (lambda (edition-list)
+          (if (list? edition-list)
+              (set! tags (filter (lambda (v) (symbol? v)) edition-list))
+              (set! tags '()))
+          ))
+  ; get list of edition-tags
+  (set! get-edition-list (lambda () `(,@tags)))
+
+; 
+  (set! edition-mod
+        (lambda (edition-tag measure moment context-edition-id mods)
+          ))
+  )
 
