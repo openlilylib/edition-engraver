@@ -35,6 +35,7 @@
 ; TODO: tree.scm should be placed in another more generic module (oll-core?)
 (use-modules (edition-engraver tree)(lily))
 
+(ly:message "initializing edition-engraver ...")
 
 ; TODO: "mom?" should be named more clearly
 ; TODO: "mom?" or "mom-pair?" ...
@@ -87,7 +88,7 @@
 
 ; the closure to store tags and mods
 (let ((tags '())
-      (mods (tree-create 'edition-mods)))
+      (mod-tree (tree-create 'edition-mods)))
   ; add edition-tag
   (set! add-edition (lambda (tag) (if (not (memq tag tags)) (set! tags `(,@tags ,tag)))))
   ; remove edition-tag
@@ -106,6 +107,14 @@
   ; TODO alternative triggers (not only measure/moment)
   (set! edition-mod
         (lambda (edition-tag measure moment context-edition-id mods)
+          (let* ((mod-path `(,edition-tag ,measure ,moment ,@context-edition-id))
+                 (tmods (tree-get mod-tree mod-path))
+                 (tmods (if (list? tmods) tmods '())))
+            (tree-set! mods mod-path (append tmods mods))
+            ))
+        )
+  (set! edition-engraver
+        (lambda (context)
+          `()
           ))
   )
-
