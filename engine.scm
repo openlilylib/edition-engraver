@@ -52,7 +52,7 @@
    (else (ly:make-moment 0/4))))
 
 ; a predicate for short input of lists of ly:moment-pairs (measure+moment)
-(define (mom-list? v)(and (list? v)
+(define (imom-list? v)(and (list? v)
                           (every (lambda (p)
                                    (or (integer? p)
                                        (and (pair? p)
@@ -60,7 +60,7 @@
                                             (mom? (cdr p))))
                                    v))))
 ; convert to a list of measure/moment pairs
-(define (mom-list v)
+(define (imom-list v)
   (map (lambda (m)
          (cond
           ((integer? m)(cons m (ly:make-moment 0 0)))
@@ -68,98 +68,83 @@
           (else (cons 0 (ly:make-moment 0 4)))))
     v))
 
-; predefine functions - to be implemented in a closure -- why? we are already in a module?
+; store active edition-targets
+(define edition-targets '())
+; store mods in a tree - to be accessed by path
+(define mod-tree (tree-create 'edition-mods))
+
+; add/activate edition-target
+(define-public (add-edition edition-target)
+  (if (not (memq edition-target edition-targets))
+      (set! edition-targets `(,@edition-targets ,edition-target))))
+; remove/deactivate edition-target
+(define-public (remove-edition edition-target)
+  (set! edition-targets (filter (lambda (t) (equal? t edition-target)) edition-targets)))
+; set list of edition-targets (copy list)
+(define-public (set-edition-list edition-list) (set! edition-targets `(,@edition-list)))
+; get list of edition-targets (copy list)
+(define-public (get-edition-list) `(,@edition-targets))
+
+; add modification(s)
+(define-public (edition-mod edition-target measure moment context-edition-id mods)
+  (let* ((mod-path `(,edition-target ,measure ,moment ,@context-edition-id))
+         (tmods (tree-get mod-tree mod-path))
+         (tmods (if (list? tmods) tmods '())))
+    (tree-set! mod-tree mod-path (append tmods mods))
+    ))
+
+; add modification(s) on multiple times
+(define-public (edition-mod-list edition-target context-edition-id mods mom-list)
+  (for-each
+   (lambda (mom) (edition-mod edition-target (car mom) (cdr mom) context-edition-id mods))
+   (imom-list mom-list)))
+
+
 
 ; the edition-engraver
-(define-public edition-engraver (lambda (context) (list)))
+(define-public (edition-engraver context)
+    (let ( (context-edition-id '()) ; it receives the context-edition-id from a context-property
+           (context-name (ly:context-name context)) ; the context name (Voice, Staff or else)
+           (context-id (ly:context-id context)) ; the context-id assigned by \new Context = "the-id" ...
+           )
+      ; find mods for the current time-spec
+      (define (find-mods)
+        (let ((current-mods '())
+              (moment (ly:context-current-moment context))
+              (measure (ly:context-property context 'currentBarNumber))
+              (measurePos (ly:context-property context 'measurePosition))
+              )
+          (for-each
+           (lambda (tag)
+             (let ((mods (tree-get mod-tree `(,tag ,measure ,measurePos ,@context-edition-id ,context-name))))
+               (if (and (list? mods)(> (length mods) 0))
+                   (set! current-mods `(,@current-mods ,@mods)))
+               )) edition-targets)
+          current-mods))
 
-; add/activate edition-tag
-(define-public (add-edition edition-name) #f)
-; remove/deactivate edition-tag
-(define-public (remove-edition edition-name) #f)
-; set list of edition-tags
-(define-public (set-edition-list edition-list) #f)
-; get list of edition-tags
-(define-public (get-edition-list) '())
-; add modification(s)
-(define-public (edition-mod edition-tag measure moment context-edition-id mods) #f)
-; add modification(s) on multiple times
-(define-public (edition-mod-list edition-tag context-edition-id mods mom-list) #f)
+      `( ; better make-engraver macro?
+         ; initialize engraver with its own id
+         (initialize .
+           ,(lambda (trans)
+              (define (find-edition-id context)
+                (if (ly:context? context)
+                    (let ((edition-id (ly:context-property context 'edition-id #f)))
+                      (if (and (list? edition-id)(> (length edition-id) 0))
+                          edition-id
+                          (find-edition-id (ly:context-parent context)))
+                      )
+                    '()))
+              (set! context-edition-id (find-edition-id context))
+              (ly:message "edition-engraver: ~A ~A \"~A\"" context-edition-id context-name context-id)
+              ))
+         ; start timestep
+         (start-translation-timestep .
+           ,(lambda (trans)
+              (for-each
+               (lambda (mod)
+                 (if (ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
+                 ) (find-mods))
+              ))
+         ) ; /make-engraver
+      ))
 
-; the closure to store tags and mods
-(let ((tags '())
-      (mod-tree (tree-create 'edition-mods)))
-
-  ; add edition-tag (name target?)
-  (set! add-edition (lambda (tag) (if (not (memq tag tags)) (set! tags `(,@tags ,tag)))))
-  ; remove edition-tag
-  (set! remove-edition (lambda (tag) (set! tags (remove (lambda (e) (eq? e tag)) tags))))
-  ; set list of edition-tags
-  (set! set-edition-list
-        (lambda (edition-list)
-          (if (list? edition-list)
-              (set! tags (filter (lambda (v) (symbol? v)) edition-list))
-              (set! tags '()))
-          ))
-  ; get list of edition-tags
-  (set! get-edition-list (lambda () `(,@tags)))
-
-  ; add edition-mod
-  ; TODO alternative triggers (not only measure/moment)
-  (set! edition-mod
-        (lambda (edition-tag measure moment context-edition-id mods)
-          (let* ((mod-path `(,edition-tag ,measure ,moment ,@context-edition-id))
-                 (tmods (tree-get mod-tree mod-path))
-                 (tmods (if (list? tmods) tmods '())))
-            (tree-set! mod-tree mod-path (append tmods mods))
-            ))
-        )
-
-  ; the edition-engraver
-  (set! edition-engraver
-        (lambda (context)
-          (let ( (context-edition-id '()) ; it receives the context-edition-id from a context-property
-                 (context-name (ly:context-name context)) ; the context name (Voice, Staff or else)
-                 (context-id (ly:context-id context)) ; the context-id assigned by \new Context = "the-id" ...
-                 )
-            ; find mods for the current time-spec
-            (define (find-mods)
-              (let ((current-mods '())
-                    (measure (ly:context-property context 'currentBarNumber))
-                    (measurePos (ly:context-property context 'measurePosition))
-                    )
-                (for-each
-                 (lambda (tag)
-                   (let ((mods (tree-get mod-tree `(,tag ,measure ,measurePos ,@context-edition-id ,context-name))))
-                     (if (and (list? mods)(> (length mods) 0))
-                         (set! current-mods `(,@current-mods ,@mods)))
-                     )) tags)
-                current-mods))
-
-            `( ; better make-engraver macro?
-               ; initialize engraver with its own id
-               (initialize .
-                 ,(lambda (trans)
-                    (define (find-edition-id context)
-                      (if (ly:context? context)
-                          (let ((edition-id (ly:context-property context 'edition-id #f)))
-                            (if (and (list? edition-id)(> (length edition-id) 0))
-                                edition-id
-                                (find-edition-id (ly:context-parent context)))
-                            )
-                          '()))
-                    (set! context-edition-id (find-edition-id context))
-                    (ly:message "edition-engraver: ~A ~A \"~A\"" context-edition-id context-name context-id)
-                    ))
-               ; start timestep
-               (start-translation-timestep .
-                 ,(lambda (trans)
-                    (for-each
-                     (lambda (mod)
-                       (if (ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
-                       ) (find-mods))
-                    ))
-               ) ; /make-engraver
-            )) ; /lambda/let
-        ) ; /set!
-  )
