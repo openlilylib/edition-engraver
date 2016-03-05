@@ -68,7 +68,7 @@
           (else (cons 0 (ly:make-moment 0 4)))))
     v))
 
-; predefine functions - to be implemented in a closure
+; predefine functions - to be implemented in a closure -- why? we are already in a module?
 
 ; the edition-engraver
 (define-public edition-engraver (lambda (context) (list)))
