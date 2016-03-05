@@ -136,7 +136,8 @@
                      )) tags)
                 current-mods))
 
-            `(
+            `( ; better make-engraver macro?
+               ; initialize engraver with its own id
                (initialize .
                  ,(lambda (trans)
                     (define (find-edition-id context)
@@ -150,6 +151,7 @@
                     (set! context-edition-id (find-edition-id context))
                     (ly:message "edition-engraver: ~A ~A \"~A\"" context-edition-id context-name context-id)
                     ))
+               ; start timestep
                (start-translation-timestep .
                  ,(lambda (trans)
                     (for-each
@@ -157,5 +159,7 @@
                        (if (ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
                        ) (find-mods))
                     ))
-               ))))
+               ) ; /make-engraver
+            )) ; /lambda/let
+        ) ; /set!
   )
