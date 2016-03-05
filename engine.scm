@@ -47,7 +47,7 @@
 (define (mom->moment m)
   (cond
    ((integer? m)(ly:make-moment m/4))
-   ((fraction? m)(ly:make-moment m))
+   ((fraction? m)(ly:make-moment (car m) (cdr m)))
    ((ly:moment? v) v)
    (else (ly:make-moment 0/4))))
 
@@ -77,13 +77,27 @@
 (define-public (add-edition edition-target)
   (if (not (memq edition-target edition-targets))
       (set! edition-targets `(,@edition-targets ,edition-target))))
+(define-public addEdition
+  (define-void-function (edition-target)(symbol?)
+    (add-edition edition-target)))
+
 ; remove/deactivate edition-target
 (define-public (remove-edition edition-target)
   (set! edition-targets (filter (lambda (t) (equal? t edition-target)) edition-targets)))
+(define-public removeEdition
+  (define-void-function (edition-target)(symbol?)
+    (remove-edition edition-target)))
+
 ; set list of edition-targets (copy list)
 (define-public (set-edition-list edition-list) (set! edition-targets `(,@edition-list)))
+(define-public setEditions
+  (define-void-function (edition-list)(symbol-list?)
+    (set-edition-list edition-list)))
 ; get list of edition-targets (copy list)
 (define-public (get-edition-list) `(,@edition-targets))
+(define-public getEditions
+  (define-scheme-function ()()
+    (get-edition-list)))
 
 ; add modification(s)
 (define-public (edition-mod edition-target measure moment context-edition-id mods)
@@ -92,13 +106,22 @@
          (tmods (if (list? tmods) tmods '())))
     (tree-set! mod-tree mod-path (append tmods mods))
     ))
+(define-public editionMod
+  (define-void-function
+   (edition-target measure moment context-edition-id mods)
+   (symbol? integer? mom? list? ly:music?)
+   (edition-mod edition-target measure (mom->moment moment) context-edition-id (list mods))))
 
 ; add modification(s) on multiple times
 (define-public (edition-mod-list edition-target context-edition-id mods mom-list)
   (for-each
    (lambda (mom) (edition-mod edition-target (car mom) (cdr mom) context-edition-id mods))
    (imom-list mom-list)))
-
+(define-public editionModList
+ (define-void-function
+  (edition-target context-edition-id mods mom-list)
+  (symbol? list? ly:music? imom-list?)
+  (edition-mod-list edition-target context-edition-id mods mom-list)))
 
 
 ; the edition-engraver

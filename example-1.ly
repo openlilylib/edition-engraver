@@ -1,12 +1,24 @@
 \version "2.19.37"
 \include "edition-engraver.ily"
 
-#(add-edition 'test)
-#(edition-mod 'test 1 (ly:make-moment 2/4) '(hallo welt Voice) (list #{ \override NoteHead.color = #red #}))
+\addEdition test
+\editionMod test 1 2/4 hallo.welt.Voice \override NoteHead.color = #green
+
+\layout {
+  \context {
+    \Score
+    \consists \edition-engraver
+  }
+  \context {
+    \Staff
+    \consists \edition-engraver
+  }
+  \context {
+    \Voice
+    \consists \edition-engraver
+  }
+}
 
 \new Staff = "BACH" \with {
   edition-id = #'(hallo welt)
-  \consists #edition-engraver
-} \new Voice = "SING" \with {
-  \consists #edition-engraver
-} \relative c'' { bes4 a c b }
+} \new Voice = "SING" \relative c'' { bes4 a c b }
