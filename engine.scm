@@ -53,12 +53,12 @@
 
 ; a predicate for short input of lists of ly:moment-pairs (measure+moment)
 (define (imom-list? v)(and (list? v)
-                          (every (lambda (p)
-                                   (or (integer? p)
-                                       (and (pair? p)
-                                            (integer? (car p))
-                                            (mom? (cdr p))))
-                                   v))))
+                           (every (lambda (p)
+                                    (or (integer? p)
+                                        (and (pair? p)
+                                             (integer? (car p))
+                                             (mom? (cdr p))))
+                                    v))))
 ; convert to a list of measure/moment pairs
 (define (imom-list v)
   (map (lambda (m)
@@ -118,56 +118,80 @@
    (lambda (mom) (edition-mod edition-target (car mom) (cdr mom) context-edition-id mods))
    (imom-list mom-list)))
 (define-public editionModList
- (define-void-function
-  (edition-target context-edition-id mods mom-list)
-  (symbol? list? ly:music? imom-list?)
-  (edition-mod-list edition-target context-edition-id mods mom-list)))
-
+  (define-void-function
+   (edition-target context-edition-id mods mom-list)
+   (symbol? list? ly:music? imom-list?)
+   (edition-mod-list edition-target context-edition-id mods mom-list)))
 
 ; the edition-engraver
 (define-public (edition-engraver context)
-    (let ( (context-edition-id '()) ; it receives the context-edition-id from a context-property
-           (context-name (ly:context-name context)) ; the context name (Voice, Staff or else)
-           (context-id (ly:context-id context)) ; the context-id assigned by \new Context = "the-id" ...
-           )
-      ; find mods for the current time-spec
-      (define (find-mods)
-        (let ((current-mods '())
-              (moment (ly:context-current-moment context))
-              (measure (ly:context-property context 'currentBarNumber))
-              (measurePos (ly:context-property context 'measurePosition))
-              )
-          (for-each
-           (lambda (tag)
-             (let ((mods (tree-get mod-tree `(,tag ,measure ,measurePos ,@context-edition-id ,context-name))))
-               (if (and (list? mods)(> (length mods) 0))
-                   (set! current-mods `(,@current-mods ,@mods)))
-               )) edition-targets)
-          current-mods))
+  (let ( (context-edition-id '()) ; it receives the context-edition-id from a context-property
+         (context-name (ly:context-name context)) ; the context name (Voice, Staff or else)
+         (context-id (ly:context-id context)) ; the context-id assigned by \new Context = "the-id" ...
+         )
 
-      `( ; better make-engraver macro?
-         ; initialize engraver with its own id
-         (initialize .
-           ,(lambda (trans)
-              (define (find-edition-id context)
-                (if (ly:context? context)
-                    (let ((edition-id (ly:context-property context 'edition-id #f)))
-                      (if (and (list? edition-id)(> (length edition-id) 0))
-                          edition-id
-                          (find-edition-id (ly:context-parent context)))
-                      )
-                    '()))
-              (set! context-edition-id (find-edition-id context))
-              (ly:message "edition-engraver: ~A ~A \"~A\"" context-edition-id context-name context-id)
-              ))
-         ; start timestep
-         (start-translation-timestep .
-           ,(lambda (trans)
-              (for-each
-               (lambda (mod)
-                 (if (ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
-                 ) (find-mods))
-              ))
-         ) ; /make-engraver
-      ))
+    ; log slot calls
+    (define (log-slot slot) ; TODO: option verbose? oll logging function?
+      (ly:message "edition-engraver ~A = \"~A\" : ~A" context-name context-id slot))
+
+    ; find mods for the current time-spec
+    (define (find-mods)
+      (let ((current-mods '())
+            (moment (ly:context-current-moment context))
+            (measure (ly:context-property context 'currentBarNumber))
+            (measurePos (ly:context-property context 'measurePosition))
+            )
+        (for-each
+         (lambda (tag)
+           (let ((mods (tree-get mod-tree `(,tag ,measure ,measurePos ,@context-edition-id ,context-name))))
+             (if (and (list? mods)(> (length mods) 0))
+                 (set! current-mods `(,@current-mods ,@mods)))
+             )) edition-targets)
+        current-mods))
+
+    `( ; better make-engraver macro?
+       ; initialize engraver with its own id
+       (initialize .
+         ,(lambda (trans)
+            (define (find-edition-id context)
+              (if (ly:context? context)
+                  (let ((edition-id (ly:context-property context 'edition-id #f)))
+                    (if (and (list? edition-id)(> (length edition-id) 0))
+                        edition-id
+                        (find-edition-id (ly:context-parent context)))
+                    )
+                  '()))
+            (log-slot "initialize")
+            (set! context-edition-id (find-edition-id context))
+            (ly:message "edition-engraver: ~A ~A \"~A\"" context-edition-id context-name context-id)
+            ))
+       ; paper columns --> breaks
+       (paper-column-interface .
+         ,(lambda (engraver grob source-engraver)
+            (log-slot "paper-column-interface")
+            ))
+       ; start timestep
+       (start-translation-timestep .
+         ,(lambda (trans)
+            (log-slot "start-translation-timestep")
+            (for-each
+             (lambda (mod)
+               (if (ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
+               ) (find-mods))
+            ))
+       (stop-translation-timestep .
+         ,(lambda (trans)
+            (log-slot "stop-translation-timestep")
+            ))
+       (process-music .
+         ,(lambda (trans)
+            (log-slot "process-music")
+            ))
+       (finalize .
+         ,(lambda (trans)
+            (log-slot "finalize")
+            ))
+
+       ) ; /make-engraver
+    ))
 
