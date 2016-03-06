@@ -149,7 +149,8 @@
              )) edition-targets)
         current-mods))
 
-    `( ; better make-engraver macro?
+    `( ; TODO better make-engraver macro?
+       ; TODO slots: listeners, acknowledgers, end-acknowledgers, process-acknowledged
        ; initialize engraver with its own id
        (initialize .
          ,(lambda (trans)
