@@ -226,6 +226,7 @@
        (for-some-music
         (lambda (m)
           (cond
+
            ((eq? 'OverrideProperty (ly:music-property m 'name))
             (let* ((once (ly:music-property m 'once #f))
                    (grob (ly:music-property m 'symbol))
@@ -239,6 +240,34 @@
               (set! collected-mods `(,@collected-mods ,mod)) ; alternative (cons mod collected-mods)
               #t
               ))
+
+           ((eq? 'RevertProperty (ly:music-property m 'name))
+            (let* ((grob (ly:music-property m 'symbol))
+                   (prop (ly:music-property m 'grob-property))
+                   (prop (if (symbol? prop)
+                             prop
+                             (car (ly:music-property m 'grob-property-path))))
+                   (mod (make <override> #:once #f #:revert #t #:grob grob #:prop prop #:value #f #:context #f)))
+              (set! collected-mods `(,@collected-mods ,mod))
+              #t
+              ))
+
+           ((eq? 'PropertySet (ly:music-property m 'name))
+            (let* ((once (ly:music-property m 'once #f))
+                   (symbol (ly:music-property m 'symbol))
+                   (value (ly:music-property m 'value))
+                   (mod (make <propset> #:once once #:symbol symbol #:value value #:context #f)))
+              (set! collected-mods `(,@collected-mods ,mod))
+              #t
+              ))
+
+           ((eq? 'ApplyContext (ly:music-property m 'name))
+            (let* ((proc (ly:music-property m 'procedure))
+                   (mod (make <apply-context> #:proc proc)))
+              (set! collected-mods `(,@collected-mods ,mod))
+              #t
+              ))
+
            (else #f)
            )) mods)
        (edition-mod edition-target measure (mom->moment moment) context-edition-id collected-mods)))
