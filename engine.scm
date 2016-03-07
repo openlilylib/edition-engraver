@@ -90,8 +90,8 @@
 ; execute property set
 (define-method (do-propset context (prop <propset>))
   (if (get-context prop)
-      (let ((parctx (ly:context-find context (get-context prop))))
-        (if (ly:context? parctx) (set! context parctx))))
+      (let ((parent-context (ly:context-find context (get-context prop))))
+        (if (ly:context? parent-context) (set! context parent-context))))
   (set-previous! prop (ly:context-property context (get-symbol prop)))
   (ly:context-set-property! context (get-symbol prop) (get-value prop))
   )
@@ -100,8 +100,8 @@
 ; execute property reset
 (define-method (reset-prop context (prop <propset>))
   (if (get-context prop)
-      (let ((parctx (ly:context-find context (get-context prop))))
-        (if (ly:context? parctx) (set! context parctx))))
+      (let ((parent-context (ly:context-find context (get-context prop))))
+        (if (ly:context? parent-context) (set! context parent-context))))
   (ly:context-set-property! context (get-symbol prop) (get-previous prop))
   )
 (export reset-prop)
@@ -145,11 +145,11 @@
 
 ; override -> string
 (define-method (oop->string (o <override>))
-  (let* ((ctxn (get-context o))
-         (ctxp (if ctxn (format "~A." ctxn) "")))
+  (let* ((context-name (get-context o))
+         (context-sname (if context-name (format "~A." context-name) "")))
     (if (is-revert o)
-        (string-append "\\revert " ctxp (format "~A " (get-grob o)) (format "#'~A" (get-prop o)))
-        (string-append (if (is-once o) "\\once " "") "\\override " ctxp (format "~A " (get-grob o)) (format "#'~A" (get-prop o)) " = " (format "~A" (get-value o)))
+        (string-append "\\revert " context-sname (format "~A " (get-grob o)) (format "#'~A" (get-prop o)))
+        (string-append (if (is-once o) "\\once " "") "\\override " context-sname (format "~A " (get-grob o)) (format "#'~A" (get-prop o)) " = " (format "~A" (get-value o)))
         )))
 (export oop->string)
 ; display override
@@ -158,18 +158,18 @@
 (define-public (override? o)(is-a? o <override>))
 
 ; execute override
-(define-method (do-override ctx (mod <override>))
+(define-method (do-override context (mod <override>))
   (if (get-context mod)
-      (let ((parctx (ly:context-find ctx (get-context mod))))
-        (if (ly:context? parctx) (set! ctx parctx))))
-  (ly:context-pushpop-property ctx (get-grob mod) (get-prop mod) (get-value mod)))
+      (let ((parent-context (ly:context-find context (get-context mod))))
+        (if (ly:context? parent-context) (set! context parent-context))))
+  (ly:context-pushpop-property context (get-grob mod) (get-prop mod) (get-value mod)))
 (export do-override)
 ; revert override
-(define-method (do-revert ctx (mod <override>))
+(define-method (do-revert context (mod <override>))
   (if (get-context mod)
-      (let ((parctx (ly:context-find ctx (get-context mod))))
-        (if (ly:context? parctx) (set! ctx parctx))))
-  (ly:context-pushpop-property ctx (get-grob mod) (get-prop mod)))
+      (let ((parent-context (ly:context-find context (get-context mod))))
+        (if (ly:context? parent-context) (set! context parent-context))))
+  (ly:context-pushpop-property context (get-grob mod) (get-prop mod)))
 (export do-revert)
 
 ;%%%%%%%%%%%%%%%%%%%%%%%%%
