@@ -132,6 +132,8 @@
 
 
 ;;; override as a class
+; TODO: temporary override?
+; TODO: is this needed?
 (define-class <override> ()
   (once #:init-value #t #:accessor is-once #:setter set-once! #:init-keyword #:once)
   (revert #:init-value #f #:accessor is-revert #:setter set-revert! #:init-keyword #:revert)
@@ -299,14 +301,16 @@
                 )
                ) (find-mods))
             ))
+       ; stop/finish translation timestep
        (stop-translation-timestep .
          ,(lambda (trans)
             (log-slot "stop-translation-timestep")
-            (for-each
+            (for-each ; revert/reset once override/set
              (lambda (mod)
                (cond
                 ((propset? mod) (reset-prop context mod))
                 ((override? mod) (do-revert context mod))
+                ((ly:context-mod? mod) (ly:context-mod-apply! context mod))
                 ))
              once-mods)
             (set! once-mods '()) ; reset once-mods
