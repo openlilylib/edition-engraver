@@ -33,7 +33,11 @@
 
 ; use tree structure - but not alist-based!
 ; TODO: tree.scm should be placed in another more generic module (oll-core?)
-(use-modules (edition-engraver tree)(lily))
+(use-modules
+ (lily)
+ (oop goops)
+ (edition-engraver tree)
+ )
 
 (ly:message "initializing edition-engraver ...")
 
@@ -67,6 +71,107 @@
           ((and (pair? m)(integer? (car m))(mom? (cdr m)))(cons (car m)(mom->moment (cdr m))))
           (else (cons 0 (ly:make-moment 0 4)))))
     v))
+
+
+
+;%%%%%%%%%%%%% mod-classes
+
+; we need to store some mods as arbitrary objects, to allow once
+
+;;; property set as a class
+(define-class <propset> ()
+  (once #:init-value #t #:accessor is-once #:setter set-once! #:init-keyword #:once)
+  (symbol #:accessor get-symbol #:setter set-symbol! #:init-keyword #:symbol)
+  (value #:accessor get-value #:setter set-value! #:init-keyword #:value)
+  (previous #:accessor get-previous #:setter set-previous! #:init-value #f)
+  (context #:accessor get-context #:setter set-context! #:init-keyword #:context)
+  )
+
+; execute property set
+(define-method (do-propset context (prop <propset>))
+  (if (get-context prop)
+      (let ((parctx (ly:context-find context (get-context prop))))
+        (if (ly:context? parctx) (set! context parctx))))
+  (set-previous! prop (ly:context-property context (get-symbol prop)))
+  (ly:context-set-property! context (get-symbol prop) (get-value prop))
+  )
+(export do-propset)
+
+; execute property reset
+(define-method (reset-prop context (prop <propset>))
+  (if (get-context prop)
+      (let ((parctx (ly:context-find context (get-context prop))))
+        (if (ly:context? parctx) (set! context parctx))))
+  (ly:context-set-property! context (get-symbol prop) (get-previous prop))
+  )
+(export reset-prop)
+
+; propset predicate
+(define-public (propset? p)(is-a? p <propset>))
+; propset -> string
+(define-method (propset->string (ps <propset>))
+  (format "~A\\set ~A = ~A" (if (is-once ps) "once " "") (string-append (if (get-context ps) (format "~A." (get-context ps)) "") (format "~A" (get-symbol ps))) (get-value ps)))
+(export propset->string)
+; display propset
+(define-method (display (o <propset>) port) (display (propset->string o) port))
+
+
+
+;;; apply-context as a class
+(define-class <apply-context> ()
+  (proc #:accessor procedure #:setter set-procedure! #:init-keyword #:proc)
+  )
+
+; execute apply-context!
+(define-method (do-apply context (a <apply-context>))
+  ((procedure a) context))
+(export do-apply)
+; apply-context as a class
+(define-public (apply-context? a)(is-a? a <apply-context>))
+
+
+
+;;; override as a class
+(define-class <override> ()
+  (once #:init-value #t #:accessor is-once #:setter set-once! #:init-keyword #:once)
+  (revert #:init-value #f #:accessor is-revert #:setter set-revert! #:init-keyword #:revert)
+  (grob #:accessor get-grob #:setter set-grob! #:init-keyword #:grob)
+  (prop #:accessor get-prop #:setter set-prop! #:init-keyword #:prop)
+  (value #:accessor get-value #:setter set-value! #:init-keyword #:value)
+  (context #:accessor get-context #:setter set-context! #:init-keyword #:context)
+  )
+
+; override -> string
+(define-method (oop->string (o <override>))
+  (let* ((ctxn (get-context o))
+         (ctxp (if ctxn (format "~A." ctxn) "")))
+    (if (is-revert o)
+        (string-append "\\revert " ctxp (format "~A " (get-grob o)) (format "#'~A" (get-prop o)))
+        (string-append (if (is-once o) "\\once " "") "\\override " ctxp (format "~A " (get-grob o)) (format "#'~A" (get-prop o)) " = " (format "~A" (get-value o)))
+        )))
+(export oop->string)
+; display override
+(define-method (display (o <override>) port) (display (oop->string o) port))
+; override predicate
+(define-public (override? o)(is-a? o <override>))
+
+; execute override
+(define-method (do-override ctx (mod <override>))
+  (if (get-context mod)
+      (let ((parctx (ly:context-find ctx (get-context mod))))
+        (if (ly:context? parctx) (set! ctx parctx))))
+  (ly:context-pushpop-property ctx (get-grob mod) (get-prop mod) (get-value mod)))
+(export do-override)
+; revert override
+(define-method (do-revert ctx (mod <override>))
+  (if (get-context mod)
+      (let ((parctx (ly:context-find ctx (get-context mod))))
+        (if (ly:context? parctx) (set! ctx parctx))))
+  (ly:context-pushpop-property ctx (get-grob mod) (get-prop mod)))
+(export do-revert)
+
+;%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 ; store active edition-targets
 (define edition-targets '())
@@ -128,6 +233,7 @@
   (let ( (context-edition-id '()) ; it receives the context-edition-id from a context-property
          (context-name (ly:context-name context)) ; the context name (Voice, Staff or else)
          (context-id (ly:context-id context)) ; the context-id assigned by \new Context = "the-id" ...
+         (once-mods '())
          )
 
     ; log slot calls
@@ -177,12 +283,33 @@
             (log-slot "start-translation-timestep")
             (for-each
              (lambda (mod)
-               (if (ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
+               (cond
+                ((override? mod)
+                 (if (is-revert mod)
+                     (do-revert context mod)
+                     (do-override context mod))
+                 ; if it is once, add to once-list
+                 (if (is-once mod) (set! once-mods (cons mod once-mods)))
+                 )
+                ((propset? mod)
+                 (do-propset context mod)
+                 (if (is-once mod) (set! once-mods (cons mod once-mods)))
+                 )
+                ((ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
+                )
                ) (find-mods))
             ))
        (stop-translation-timestep .
          ,(lambda (trans)
             (log-slot "stop-translation-timestep")
+            (for-each
+             (lambda (mod)
+               (cond
+                ((propset? mod) (reset-prop context mod))
+                ((override? mod) (do-revert context mod))
+                ))
+             once-mods)
+            (set! once-mods '()) ; reset once-mods
             ))
        (process-music .
          ,(lambda (trans)
