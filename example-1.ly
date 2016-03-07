@@ -2,7 +2,7 @@
 \include "edition-engraver.ily"
 
 \addEdition test
-\editionMod test 1 2/4 hallo.welt.Voice \override NoteHead.color = #green
+\editionMod test 1 2/4 hallo.welt.Voice \once \override NoteHead.color = #green
 \editionMod test 1 2/4 hallo.welt.Staff \clef "alto"
 
 \layout {

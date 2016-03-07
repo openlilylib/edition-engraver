@@ -211,13 +211,38 @@
   (let* ((mod-path `(,edition-target ,measure ,moment ,@context-edition-id))
          (tmods (tree-get mod-tree mod-path))
          (tmods (if (list? tmods) tmods '())))
+    (ly:message "mods ~A" mods)
     (tree-set! mod-tree mod-path (append tmods mods))
     ))
+(define-public (music-or-contextmod? v) (or (ly:music? v)(ly:context-mod? v)))
 (define-public editionMod
   (define-void-function
    (edition-target measure moment context-edition-id mods)
-   (symbol? integer? mom? list? ly:music?)
-   (edition-mod edition-target measure (mom->moment moment) context-edition-id (list mods))))
+   (symbol? integer? mom? list? music-or-contextmod?)
+   (cond
+    ((ly:context-mod? mods) (edition-mod edition-target measure (mom->moment moment) context-edition-id (list mods)))
+    ((ly:music? mods)
+     (let ((collected-mods '()))
+       (for-some-music
+        (lambda (m)
+          (cond
+           ((eq? 'OverrideProperty (ly:music-property m 'name))
+            (let* ((once (ly:music-property m 'once #f))
+                   (grob (ly:music-property m 'symbol))
+                   (prop (ly:music-property m 'grob-property))
+                   (prop (if (symbol? prop)
+                             prop
+                             (car (ly:music-property m 'grob-property-path))))
+                   (value (ly:music-property m 'grob-value))
+                   (mod (make <override> #:once once #:grob grob #:prop prop #:value value #:context #f)))
+              (ly:message "mod ~A" mod)
+              (set! collected-mods `(,@collected-mods ,mod)) ; alternative (cons mod collected-mods)
+              #t
+              ))
+           (else #f)
+           )) mods)
+       (edition-mod edition-target measure (mom->moment moment) context-edition-id collected-mods)))
+    )))
 
 ; add modification(s) on multiple times
 (define-public (edition-mod-list edition-target context-edition-id mods mom-list)
@@ -306,13 +331,13 @@
          ,(lambda (trans)
             (log-slot "stop-translation-timestep")
             (for-each ; revert/reset once override/set
-             (lambda (mod)
-               (cond
-                ((propset? mod) (reset-prop context mod))
-                ((override? mod) (do-revert context mod))
-                ((ly:context-mod? mod) (ly:context-mod-apply! context mod))
-                ))
-             once-mods)
+              (lambda (mod)
+                (cond
+                 ((propset? mod) (reset-prop context mod))
+                 ((override? mod) (do-revert context mod))
+                 ((ly:context-mod? mod) (ly:context-mod-apply! context mod))
+                 ))
+              once-mods)
             (set! once-mods '()) ; reset once-mods
             ))
        (process-music .
