@@ -223,6 +223,7 @@
     ((ly:context-mod? mods) (edition-mod edition-target measure (mom->moment moment) context-edition-id (list mods)))
     ((ly:music? mods)
      (let ((collected-mods '()))
+       ; TODO fetch parent context
        (for-some-music
         (lambda (m)
           (cond
