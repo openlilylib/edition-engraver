@@ -322,6 +322,7 @@
        (finalize .
          ,(lambda (trans)
             (log-slot "finalize")
+            ; TODO edition.log
             ))
 
        ) ; /make-engraver
