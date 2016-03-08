@@ -2,10 +2,10 @@
 \include "edition-engraver.ily"
 
 \addEdition test
-\editionMod test 1 2/4 sing.with.bach.along.Voice \override NoteHead.color = #green
-\editionMod test 1 3/4 sing.with.bach.along.Voice \override NoteHead.color = #blue
-\editionMod test 2 1/4 sing.with.bach.along.Voice \revert NoteHead.color
-\editionMod test 4 0/4 sing.with.bach.along.Voice \revert NoteHead.color
+\editionMod test 1 2/4 sing.with.bach.along.Voice.A \override NoteHead.color = #green
+\editionMod test 1 3/4 sing.with.bach.along.Voice.A \override NoteHead.color = #blue
+\editionMod test 2 1/4 sing.with.bach.along.Voice.A \revert NoteHead.color
+\editionMod test 4 0/4 sing.with.bach.along.Voice.A \revert NoteHead.color
 \editionModList test sing.with.bach.Score \break #'(4 8 12 16)
 
 \editionMod test 1 2/4 sing.with.bach.along.Staff { \bar "||" \clef "alto" }

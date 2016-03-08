@@ -336,12 +336,12 @@
 ; the edition-engraver
 (define-public (edition-engraver context)
   (let ( (context-edition-id '()) ; it receives the context-edition-id from a context-property
+         (context-edition-number 0)
          (context-name (ly:context-name context)) ; the context name (Voice, Staff or else)
          (context-id (let ((cid (ly:context-id context))) ; the context-id assigned by \new Context = "the-id" ...
                        (> (string-length cid) 0)
                        (string->symbol cid)
                        #f))
-         (context-edition-number 0)
          (once-mods '())
          )
 
@@ -367,7 +367,7 @@
              (if (tree? mtree)
                  (begin
                   (add-mods (tree-get mtree (list context-name)))
-                  ;(add-mods (tree-get mtree (list context-name (base26 context-edition-number))))
+                  (add-mods (tree-get mtree (list context-name (string->symbol (base26 context-edition-number)))))
                   (if context-id
                       (begin
                        (add-mods (tree-get mtree (list context-id)))
@@ -400,10 +400,15 @@
             (set! context-edition-id (find-edition-id context))
             (set! context-edition-number
                   (let ((nr (tree-get context-counter `(,@context-edition-id ,context-name))))
-                    (set! nr (if (and (pair? nr)(integer? (car nr))) (+ (car nr) 1) 0))
-                    (tree-set! context-counter `(,@context-edition-id ,context-name) (cons context-edition-number context-id))
-                    nr
+                    (if (and (pair? nr)(integer? (car nr))) (+ (car nr) 1) 0)
                     ))
+            (tree-set! context-counter
+              `(,@context-edition-id ,context-name)
+              (cons context-edition-number context-id))
+            (tree-set! context-counter
+              `(,@context-edition-id ,context-name
+                 ,(base26 context-edition-number))
+              (if context-id context-id ""))
             (log-slot "initialize")
             ))
 
@@ -474,12 +479,14 @@
             (log-slot "finalize")
             ; TODO edition.log
             (if (eq? 'Score context-name)
-                (tree-display context-counter)
-;                (tree-walk context-counter '()
-;                  (lambda (p k val)
-;                    (if (pair? val) (format #t "~A ~A\n" p (base26 (car val))))
-;                ))
-                )
+                (with-output-to-file
+                 (string-append (ly:parser-output-name (*parser*)) ".edition.log")
+                 (lambda ()
+                 (tree-walk context-counter '()
+                   (lambda (p k val)
+                     (if (string? val) (format #t "~A \"~A\"\n" p val))
+                     ) '(sort . #t))
+                 )))
             ))
 
        ) ; /make-engraver
