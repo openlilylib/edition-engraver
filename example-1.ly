@@ -6,9 +6,9 @@
 \editionMod test 1 3/4 sing.with.bach.along.Voice \override NoteHead.color = #blue
 \editionMod test 2 1/4 sing.with.bach.along.Voice \revert NoteHead.color
 \editionMod test 4 0/4 sing.with.bach.along.Voice \revert NoteHead.color
-\editionMod test 4 0/4 sing.with.bach.Score \break
+\editionModList test sing.with.bach.Score \break #'(4 8 12 16)
 
-\editionMod test 1 2/4 sing.with.bach.along.Staff \clef "alto"
+\editionMod test 1 2/4 sing.with.bach.along.Staff { \bar "||" \clef "alto" }
 \editionMod test 2 2/4 sing.with.bach.along.Staff \clef "G"
 
 \layout {

@@ -37,6 +37,7 @@
 (use-modules
  (lily)
  (oop goops)
+ (srfi srfi-1)
  (edition-engraver tree)
  )
 
@@ -62,13 +63,14 @@
    (else (ly:make-moment 0/4))))
 
 ; a predicate for short input of lists of ly:moment-pairs (measure+moment)
-(define (imom-list? v)(and (list? v)
-                           (every (lambda (p)
-                                    (or (integer? p)
-                                        (and (pair? p)
-                                             (integer? (car p))
-                                             (mom? (cdr p))))
-                                    v))))
+(define (imom-list? v)
+  (and (list? v)
+       (every (lambda (p)
+                (or (integer? p)
+                    (and (pair? p)
+                         (integer? (car p))
+                         (mom? (cdr p)))))
+         v)))
 ; convert to a list of measure/moment pairs
 (define (imom-list v)
   (map (lambda (m)
@@ -212,66 +214,81 @@
   (define-scheme-function ()()
     (get-edition-list)))
 
+; collect mods, accepted by the engraver, from a music expression
+(define (collect-mods music context)
+  (let ((collected-mods '()))
+    (for-some-music
+     (lambda (m)
+       (cond
+        ; specified context like in \set Timing.whichBar = "||"
+        ((eq? 'ContextSpeccedMusic (ly:music-property m 'name))
+         (let* ((ct (ly:music-property m 'context-type))
+                (elm (ly:music-property m 'element)))
+           (if (eq? 'Bottom ct)
+               #f
+               (begin
+                (set! collected-mods (append collected-mods (collect-mods elm ct)))
+                #t)
+               )
+           ))
+
+        ; \override Grob.property =
+        ((eq? 'OverrideProperty (ly:music-property m 'name))
+         (let* ((once (ly:music-property m 'once #f))
+                (grob (ly:music-property m 'symbol))
+                (prop (ly:music-property m 'grob-property))
+                (prop (if (symbol? prop)
+                          prop
+                          (car (ly:music-property m 'grob-property-path))))
+                (value (ly:music-property m 'grob-value))
+                (mod (make <override> #:once once #:grob grob #:prop prop #:value value #:context context)))
+           ; (ly:message "mod ~A" mod)
+           (set! collected-mods `(,@collected-mods ,mod)) ; alternative (cons mod collected-mods)
+           #t
+           ))
+        ; \revert ...
+        ((eq? 'RevertProperty (ly:music-property m 'name))
+         (let* ((grob (ly:music-property m 'symbol))
+                (prop (ly:music-property m 'grob-property))
+                (prop (if (symbol? prop)
+                          prop
+                          (car (ly:music-property m 'grob-property-path))))
+                (mod (make <override> #:once #f #:revert #t #:grob grob #:prop prop #:value #f #:context context)))
+           (set! collected-mods `(,@collected-mods ,mod))
+           #t
+           ))
+        ; \set property = ...
+        ((eq? 'PropertySet (ly:music-property m 'name))
+         (let* ((once (ly:music-property m 'once #f))
+                (symbol (ly:music-property m 'symbol))
+                (value (ly:music-property m 'value))
+                (mod (make <propset> #:once once #:symbol symbol #:value value #:context context)))
+           (set! collected-mods `(,@collected-mods ,mod))
+           #t
+           ))
+        ; \applyContext ...
+        ((eq? 'ApplyContext (ly:music-property m 'name))
+         (let* ((proc (ly:music-property m 'procedure))
+                (mod (make <apply-context> #:proc proc)))
+           (set! collected-mods `(,@collected-mods ,mod))
+           #t
+           ))
+
+        ; Breaks and applyOutput
+        ((memq (ly:music-property m 'name) '(LineBreakEvent PageBreakEvent PageTurnEvent ApplyOutputEvent))
+         (set! collected-mods `(,@collected-mods ,m))
+         #t
+         )
+
+        (else #f) ; go ahead ...
+        )) music)
+    collected-mods))
+
 ; add modification(s)
 (define-public (edition-mod edition-target measure moment context-edition-id mods)
   (cond
-   ((ly:context-mod? mods) (set! mods (list mods)))
-   ((ly:music? mods)
-    (let ((collected-mods '()))
-      ; TODO fetch parent context
-      (for-some-music
-       (lambda (m)
-         (cond
-
-          ((eq? 'OverrideProperty (ly:music-property m 'name))
-           (let* ((once (ly:music-property m 'once #f))
-                  (grob (ly:music-property m 'symbol))
-                  (prop (ly:music-property m 'grob-property))
-                  (prop (if (symbol? prop)
-                            prop
-                            (car (ly:music-property m 'grob-property-path))))
-                  (value (ly:music-property m 'grob-value))
-                  (mod (make <override> #:once once #:grob grob #:prop prop #:value value #:context #f)))
-             ; (ly:message "mod ~A" mod)
-             (set! collected-mods `(,@collected-mods ,mod)) ; alternative (cons mod collected-mods)
-             #t
-             ))
-
-          ((eq? 'RevertProperty (ly:music-property m 'name))
-           (let* ((grob (ly:music-property m 'symbol))
-                  (prop (ly:music-property m 'grob-property))
-                  (prop (if (symbol? prop)
-                            prop
-                            (car (ly:music-property m 'grob-property-path))))
-                  (mod (make <override> #:once #f #:revert #t #:grob grob #:prop prop #:value #f #:context #f)))
-             (set! collected-mods `(,@collected-mods ,mod))
-             #t
-             ))
-
-          ((eq? 'PropertySet (ly:music-property m 'name))
-           (let* ((once (ly:music-property m 'once #f))
-                  (symbol (ly:music-property m 'symbol))
-                  (value (ly:music-property m 'value))
-                  (mod (make <propset> #:once once #:symbol symbol #:value value #:context #f)))
-             (set! collected-mods `(,@collected-mods ,mod))
-             #t
-             ))
-
-          ((eq? 'ApplyContext (ly:music-property m 'name))
-           (let* ((proc (ly:music-property m 'procedure))
-                  (mod (make <apply-context> #:proc proc)))
-             (set! collected-mods `(,@collected-mods ,mod))
-             #t
-             ))
-
-          ((memq (ly:music-property m 'name) '(LineBreakEvent PageBreakEvent PageTurnEvent ApplyOutputEvent))
-           (set! collected-mods `(,@collected-mods ,m))
-           #t
-           )
-
-          (else #f)
-          )) mods)
-      (set! mods collected-mods)))
+   ((ly:context-mod? mods) (set! mods (list mods))) ; apply context-mod
+   ((ly:music? mods) (set! mods (collect-mods mods #f)))
    )
   (let* ((mod-path `(,edition-target ,measure ,moment ,@context-edition-id))
          (tmods (tree-get mod-tree mod-path))
