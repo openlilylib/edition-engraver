@@ -352,6 +352,7 @@
                  (do-propset context mod)
                  (if (is-once mod) (set! once-mods (cons mod once-mods)))
                  )
+                ((apply-context? mod) (do-apply context mod))
                 ((ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
                 )
                ) (find-mods))
