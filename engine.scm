@@ -47,6 +47,13 @@
 ((@@ (lily) translator-property-description) 'edition-id list? "edition id (list)")
 ((@@ (lily) translator-property-description) 'edition-engraver-log boolean? "de/activate logging (boolean)")
 
+(define-public editionID
+  (define-scheme-function (inherit path)((boolean? #t) list?)
+    (if inherit
+        #{ \with { edition-id = #`(,inherit-edition-id ,@path) } #}
+        #{ \with { edition-id = $path } #}
+        )))
+
 
 ; TODO: "mom?" should be named more concisly
 ; TODO: "mom?" or "mom-pair?" ...
@@ -482,11 +489,11 @@
                 (with-output-to-file
                  (string-append (ly:parser-output-name (*parser*)) ".edition.log")
                  (lambda ()
-                 (tree-walk context-counter '()
-                   (lambda (p k val)
-                     (if (string? val) (format #t "~A \"~A\"\n" p val))
-                     ) '(sort . #t))
-                 )))
+                   (tree-walk context-counter '()
+                     (lambda (p k val)
+                       (if (string? val) (format #t "~A \"~A\"\n" p val))
+                       ) '(sort . #t))
+                   )))
             ))
 
        ) ; /make-engraver

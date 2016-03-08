@@ -26,17 +26,18 @@
   }
 }
 
+
 \layout {
   \context {
     \Score
-    edition-id = #'(sing with bach)
+    \editionID ##f sing.with.bach
     %edition-engraver-log = ##t
   }
 }
 
 \new Staff = "BACH" \with {
-  edition-id = #`(,inherit-edition-id along)
+  \editionID along
 } <<
   \repeat unfold 20 \relative c'' { bes4 a c b } \\
-  \repeat unfold 20 \relative c' { d4. e4 f8 g4 } 
+  \repeat unfold 20 \relative c' { d4. e4 f8 g4 }
 >>
