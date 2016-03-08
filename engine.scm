@@ -1,3 +1,4 @@
+; -*- master: example-1.ly;
 ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 ;%                                                                             %
 ;% This file is part of openLilyLib,                                           %
@@ -41,7 +42,12 @@
 
 (ly:message "initializing edition-engraver ...")
 
-; TODO: "mom?" should be named more clearly
+; add context properties descriptions (private lambda in module 'lily')
+((@@ (lily) translator-property-description) 'edition-id list? "edition id (list)")
+((@@ (lily) translator-property-description) 'edition-engraver-log boolean? "de/activate logging (boolean)")
+
+
+; TODO: "mom?" should be named more concisly
 ; TODO: "mom?" or "mom-pair?" ...
 ; TODO: this maybe also a candidate for another module (IIRC there has been some kind of rhythmic location in lily ...)
 
@@ -208,10 +214,69 @@
 
 ; add modification(s)
 (define-public (edition-mod edition-target measure moment context-edition-id mods)
+  (cond
+   ((ly:context-mod? mods) (set! mods (list mods)))
+   ((ly:music? mods)
+    (let ((collected-mods '()))
+      ; TODO fetch parent context
+      (for-some-music
+       (lambda (m)
+         (cond
+
+          ((eq? 'OverrideProperty (ly:music-property m 'name))
+           (let* ((once (ly:music-property m 'once #f))
+                  (grob (ly:music-property m 'symbol))
+                  (prop (ly:music-property m 'grob-property))
+                  (prop (if (symbol? prop)
+                            prop
+                            (car (ly:music-property m 'grob-property-path))))
+                  (value (ly:music-property m 'grob-value))
+                  (mod (make <override> #:once once #:grob grob #:prop prop #:value value #:context #f)))
+             ; (ly:message "mod ~A" mod)
+             (set! collected-mods `(,@collected-mods ,mod)) ; alternative (cons mod collected-mods)
+             #t
+             ))
+
+          ((eq? 'RevertProperty (ly:music-property m 'name))
+           (let* ((grob (ly:music-property m 'symbol))
+                  (prop (ly:music-property m 'grob-property))
+                  (prop (if (symbol? prop)
+                            prop
+                            (car (ly:music-property m 'grob-property-path))))
+                  (mod (make <override> #:once #f #:revert #t #:grob grob #:prop prop #:value #f #:context #f)))
+             (set! collected-mods `(,@collected-mods ,mod))
+             #t
+             ))
+
+          ((eq? 'PropertySet (ly:music-property m 'name))
+           (let* ((once (ly:music-property m 'once #f))
+                  (symbol (ly:music-property m 'symbol))
+                  (value (ly:music-property m 'value))
+                  (mod (make <propset> #:once once #:symbol symbol #:value value #:context #f)))
+             (set! collected-mods `(,@collected-mods ,mod))
+             #t
+             ))
+
+          ((eq? 'ApplyContext (ly:music-property m 'name))
+           (let* ((proc (ly:music-property m 'procedure))
+                  (mod (make <apply-context> #:proc proc)))
+             (set! collected-mods `(,@collected-mods ,mod))
+             #t
+             ))
+
+          ((memq (ly:music-property m 'name) '(LineBreakEvent PageBreakEvent PageTurnEvent ApplyOutputEvent))
+           (set! collected-mods `(,@collected-mods ,m))
+           #t
+           )
+
+          (else #f)
+          )) mods)
+      (set! mods collected-mods)))
+   )
   (let* ((mod-path `(,edition-target ,measure ,moment ,@context-edition-id))
          (tmods (tree-get mod-tree mod-path))
          (tmods (if (list? tmods) tmods '())))
-    (ly:message "mods ~A" mods)
+    ; (ly:message "mods ~A" mods)
     (tree-set! mod-tree mod-path (append tmods mods))
     ))
 (define-public (music-or-contextmod? v) (or (ly:music? v)(ly:context-mod? v)))
@@ -219,60 +284,7 @@
   (define-void-function
    (edition-target measure moment context-edition-id mods)
    (symbol? integer? mom? list? music-or-contextmod?)
-   (cond
-    ((ly:context-mod? mods) (edition-mod edition-target measure (mom->moment moment) context-edition-id (list mods)))
-    ((ly:music? mods)
-     (let ((collected-mods '()))
-       ; TODO fetch parent context
-       (for-some-music
-        (lambda (m)
-          (cond
-
-           ((eq? 'OverrideProperty (ly:music-property m 'name))
-            (let* ((once (ly:music-property m 'once #f))
-                   (grob (ly:music-property m 'symbol))
-                   (prop (ly:music-property m 'grob-property))
-                   (prop (if (symbol? prop)
-                             prop
-                             (car (ly:music-property m 'grob-property-path))))
-                   (value (ly:music-property m 'grob-value))
-                   (mod (make <override> #:once once #:grob grob #:prop prop #:value value #:context #f)))
-              (ly:message "mod ~A" mod)
-              (set! collected-mods `(,@collected-mods ,mod)) ; alternative (cons mod collected-mods)
-              #t
-              ))
-
-           ((eq? 'RevertProperty (ly:music-property m 'name))
-            (let* ((grob (ly:music-property m 'symbol))
-                   (prop (ly:music-property m 'grob-property))
-                   (prop (if (symbol? prop)
-                             prop
-                             (car (ly:music-property m 'grob-property-path))))
-                   (mod (make <override> #:once #f #:revert #t #:grob grob #:prop prop #:value #f #:context #f)))
-              (set! collected-mods `(,@collected-mods ,mod))
-              #t
-              ))
-
-           ((eq? 'PropertySet (ly:music-property m 'name))
-            (let* ((once (ly:music-property m 'once #f))
-                   (symbol (ly:music-property m 'symbol))
-                   (value (ly:music-property m 'value))
-                   (mod (make <propset> #:once once #:symbol symbol #:value value #:context #f)))
-              (set! collected-mods `(,@collected-mods ,mod))
-              #t
-              ))
-
-           ((eq? 'ApplyContext (ly:music-property m 'name))
-            (let* ((proc (ly:music-property m 'procedure))
-                   (mod (make <apply-context> #:proc proc)))
-              (set! collected-mods `(,@collected-mods ,mod))
-              #t
-              ))
-
-           (else #f)
-           )) mods)
-       (edition-mod edition-target measure (mom->moment moment) context-edition-id collected-mods)))
-    )))
+   (edition-mod edition-target measure (mom->moment moment) context-edition-id mods)))
 
 ; add modification(s) on multiple times
 (define-public (edition-mod-list edition-target context-edition-id mods mom-list)
@@ -285,6 +297,9 @@
    (symbol? list? ly:music? imom-list?)
    (edition-mod-list edition-target context-edition-id mods mom-list)))
 
+
+(define-public inherit-edition-id 'ICEID)
+
 ; the edition-engraver
 (define-public (edition-engraver context)
   (let ( (context-edition-id '()) ; it receives the context-edition-id from a context-property
@@ -295,7 +310,9 @@
 
     ; log slot calls
     (define (log-slot slot) ; TODO: option verbose? oll logging function?
-      (ly:message "edition-engraver ~A = \"~A\" : ~A" context-name context-id slot))
+      (if (and (eq? (ly:context-property-where-defined context 'edition-engraver-log) context)
+               (ly:context-property context 'edition-engraver-log #f))
+          (ly:message "edition-engraver ~A ~A = \"~A\" : ~A" context-edition-id context-name context-id slot)))
 
     ; find mods for the current time-spec
     (define (find-mods)
@@ -320,20 +337,43 @@
             (define (find-edition-id context)
               (if (ly:context? context)
                   (let ((edition-id (ly:context-property context 'edition-id #f)))
-                    (if (and (list? edition-id)(> (length edition-id) 0))
-                        edition-id
-                        (find-edition-id (ly:context-parent context)))
-                    )
-                  '()))
-            (log-slot "initialize")
+                    (if (and (list? edition-id)(> (length edition-id) 0)) ; we have an edition-id
+                        (if (eq? (car edition-id) inherit-edition-id) ; inherit parent id?
+                            (let* ((parent-edition-id (find-edition-id (ly:context-parent context)))
+                                   (edition-id (if (> (length edition-id) 1)
+                                                   (append parent-edition-id (cdr edition-id))
+                                                   parent-edition-id))) ; replace inherit-token with parent-id
+                              (ly:context-set-property! context 'edition-id edition-id)
+                              edition-id
+                              )
+                            edition-id) ; no inherit
+                        (find-edition-id (ly:context-parent context)))) ; no edition-id
+                  '())) ; if context
             (set! context-edition-id (find-edition-id context))
-            (ly:message "edition-engraver: ~A ~A \"~A\"" context-edition-id context-name context-id)
+            (log-slot "initialize")
             ))
+
        ; paper columns --> breaks
-       (paper-column-interface .
-         ,(lambda (engraver grob source-engraver)
-            (log-slot "paper-column-interface")
-            ))
+       (acknowledgers ; TODO add acknowledgers from mods
+         (paper-column-interface .
+           ,(lambda (engraver grob source-engraver)
+              (if (eq? #t (ly:grob-property grob 'non-musical))
+                  (for-each
+                   (lambda (mod)
+                     (cond
+                      ((and (ly:music? mod) (eq? 'LineBreakEvent (ly:music-property mod 'name)))
+                       (set! (ly:grob-property grob 'line-break-permission) (ly:music-property mod 'break-permission)))
+                      ((and (ly:music? mod) (eq? 'PageBreakEvent (ly:music-property mod 'name)))
+                       (set! (ly:grob-property grob 'page-break-permission) (ly:music-property mod 'break-permission)))
+                      ((and (ly:music? mod) (eq? 'PageTurnEvent (ly:music-property mod 'name)))
+                       (set! (ly:grob-property grob 'page-turn-permission) (ly:music-property mod 'break-permission)))
+                      ((and (ly:music? mod) (eq? 'ApplyOutputEvent (ly:music-property mod 'name)))
+                       (let ((proc (ly:music-property mod 'procedure)))
+                         (proc grob context context)
+                         ))
+                      )) (find-mods))
+                  )))
+         )
        ; start timestep
        (start-translation-timestep .
          ,(lambda (trans)
