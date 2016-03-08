@@ -315,14 +315,33 @@
    (symbol? list? ly:music? imom-list?)
    (edition-mod-list edition-target context-edition-id mods mom-list)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; The edition-engraver
 
-(define-public inherit-edition-id 'ICEID)
+(define-public inherit-edition-id 'ICEID) ; Inherit Context-Edition-ID
+
+(define context-counter (tree-create 'context-counter))
+
+;;;; TODO where to put this???
+(define (base26list nr suf)
+  (if (>= nr 26)
+      (append (base26list (quotient nr 26) suf) (list (remainder nr 26)))
+      `(,nr ,@suf)))
+(define (base26 nr)
+  (let ((A (char->integer #\A)))
+    (list->string (map (lambda (i) (integer->char (+ i A))) (base26list nr '())))
+    ))
+;;;;
 
 ; the edition-engraver
 (define-public (edition-engraver context)
   (let ( (context-edition-id '()) ; it receives the context-edition-id from a context-property
          (context-name (ly:context-name context)) ; the context name (Voice, Staff or else)
-         (context-id (ly:context-id context)) ; the context-id assigned by \new Context = "the-id" ...
+         (context-id (let ((cid (ly:context-id context))) ; the context-id assigned by \new Context = "the-id" ...
+                       (> (string-length cid) 0)
+                       (string->symbol cid)
+                       #f))
+         (context-edition-number 0)
          (once-mods '())
          )
 
@@ -339,15 +358,26 @@
             (measure (ly:context-property context 'currentBarNumber))
             (measurePos (ly:context-property context 'measurePosition))
             )
+        (define (add-mods mods)
+          (if (and (list? mods)(> (length mods) 0))
+              (set! current-mods `(,@current-mods ,@mods))))
         (for-each
          (lambda (tag)
-           (let ((mods (tree-get mod-tree `(,tag ,measure ,measurePos ,@context-edition-id ,context-name))))
-             (if (and (list? mods)(> (length mods) 0))
-                 (set! current-mods `(,@current-mods ,@mods)))
+           (let* ((mtree (tree-get-tree mod-tree `(,tag ,measure ,measurePos ,@context-edition-id))))
+             (if (tree? mtree)
+                 (begin
+                  (add-mods (tree-get mtree (list context-name)))
+                  ;(add-mods (tree-get mtree (list context-name (base26 context-edition-number))))
+                  (if context-id
+                      (begin
+                       (add-mods (tree-get mtree (list context-id)))
+                       (add-mods (tree-get mtree (list context-name context-id)))
+                       ))
+                  ))
              )) edition-targets)
         current-mods))
 
-    `( ; TODO better make-engraver macro?
+    `( ; TODO better use make-engraver macro?
        ; TODO slots: listeners, acknowledgers, end-acknowledgers, process-acknowledged
        ; initialize engraver with its own id
        (initialize .
@@ -368,6 +398,12 @@
                         (find-edition-id (ly:context-parent context)))) ; no edition-id
                   '())) ; if context
             (set! context-edition-id (find-edition-id context))
+            (set! context-edition-number
+                  (let ((nr (tree-get context-counter `(,@context-edition-id ,context-name))))
+                    (set! nr (if (and (pair? nr)(integer? (car nr))) (+ (car nr) 1) 0))
+                    (tree-set! context-counter `(,@context-edition-id ,context-name) (cons context-edition-number context-id))
+                    nr
+                    ))
             (log-slot "initialize")
             ))
 
@@ -437,6 +473,13 @@
          ,(lambda (trans)
             (log-slot "finalize")
             ; TODO edition.log
+            (if (eq? 'Score context-name)
+                (tree-display context-counter)
+;                (tree-walk context-counter '()
+;                  (lambda (p k val)
+;                    (if (pair? val) (format #t "~A ~A\n" p (base26 (car val))))
+;                ))
+                )
             ))
 
        ) ; /make-engraver
