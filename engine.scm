@@ -288,7 +288,7 @@
 (define-public (edition-mod edition-target measure moment context-edition-id mods)
   (cond
    ((ly:context-mod? mods) (set! mods (list mods))) ; apply context-mod
-   ((ly:music? mods) (set! mods (collect-mods mods #f)))
+   ((ly:music? mods) (set! mods (collect-mods mods #f))) ; collect mods from music expression
    )
   (let* ((mod-path `(,edition-target ,measure ,moment ,@context-edition-id))
          (tmods (tree-get mod-tree mod-path))
@@ -296,11 +296,12 @@
     ; (ly:message "mods ~A" mods)
     (tree-set! mod-tree mod-path (append tmods mods))
     ))
-(define-public (music-or-contextmod? v) (or (ly:music? v)(ly:context-mod? v)))
+; predicate for music or context-mod
+(define-public (music-or-context-mod? v) (or (ly:music? v)(ly:context-mod? v)))
 (define-public editionMod
   (define-void-function
    (edition-target measure moment context-edition-id mods)
-   (symbol? integer? mom? list? music-or-contextmod?)
+   (symbol? integer? mom? list? music-or-context-mod?)
    (edition-mod edition-target measure (mom->moment moment) context-edition-id mods)))
 
 ; add modification(s) on multiple times
