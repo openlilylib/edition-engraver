@@ -56,6 +56,9 @@
 
 
 ; TODO: this maybe also a candidate for another module (IIRC there has been some kind of rhythmic location in lily ...)
+; => this is https://github.com/openlilylib/snippets/blob/master/ly/utility/rhythmic-location.ily
+; and we should think about where to move that in the new structure anyway, then we'll see whether
+; it makes sense to move and merge the following code as well.
 
 ; a predicate for short input of ly:moment?s
 (define (short-mom? v)(or (integer? v)(fraction? v)(ly:moment? v)))
