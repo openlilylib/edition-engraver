@@ -390,21 +390,27 @@
 
     `( ; TODO better use make-engraver macro?
        ; TODO slots: listeners, acknowledgers, end-acknowledgers, process-acknowledged
+
        ; initialize engraver with its own id
        (initialize .
          ,(lambda (trans)
             (define (find-edition-id context)
               (if (ly:context? context)
-                  (let ((edition-id (ly:context-property context 'edition-id #f)))
+                  (let ((edition-id (ly:context-property context 'edition-id #f))
+                        (id-source (ly:context-property-where-defined context 'edition-id))
+                        (parent-context (ly:context-parent context)))
                     (if (and (list? edition-id)(> (length edition-id) 0)) ; we have an edition-id
-                        (if (eq? (car edition-id) inherit-edition-id) ; inherit parent id?
-                            (let* ((parent-edition-id (find-edition-id (ly:context-parent context)))
-                                   (edition-id (if (> (length edition-id) 1)
-                                                   (append parent-edition-id (cdr edition-id))
-                                                   parent-edition-id))) ; replace inherit-token with parent-id
-                              (ly:context-set-property! context 'edition-id edition-id)
-                              edition-id
-                              )
+                        (if (eq? (car edition-id) inherit-edition-id) ; inherit parent id? (wildcard found)
+                            (if (eq? context id-source) ; don't replace wildcard if it comes from parent context
+                                (let* ((parent-edition-id (find-edition-id parent-context))
+                                       (edition-id (if (> (length edition-id) 1)
+                                                       (append parent-edition-id (cdr edition-id))
+                                                       parent-edition-id))) ; replace inherit-token with parent-id
+                                  (ly:context-set-property! context 'edition-id edition-id)
+                                  edition-id
+                                  )
+                                (find-edition-id parent-context)
+                                )
                             edition-id) ; no inherit
                         (find-edition-id (ly:context-parent context)))) ; no edition-id
                   '())) ; if context
