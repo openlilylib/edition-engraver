@@ -44,10 +44,10 @@ consistEE =
        #(map
          (lambda (ctx)
            (if (and (defined? ctx)
-                    (ly:context-def? (eval ctx (current-module))))
+                    (ly:context-def? (module-ref (current-module) ctx)))
                #{
                  \context {
-                   #(eval ctx (current-module))
+                   #(module-ref (current-module) ctx)
                    \consists \edition-engraver
                  }
                #}
