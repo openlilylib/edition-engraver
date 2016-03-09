@@ -11,21 +11,10 @@
 \editionMod test 1 2/4 sing.with.bach.along.Staff { \bar "||" \clef "alto" }
 \editionMod test 2 2/4 sing.with.bach.along.Staff \clef "G"
 
-\layout {
-  \context {
-    \Score
-    \consists \edition-engraver
-  }
-  \context {
-    \Staff
-    \consists \edition-engraver
-  }
-  \context {
-    \Voice
-    \consists \edition-engraver
-  }
-}
-
+% "Install" the edition-engraver in a number of contexts.
+% The order is not relevant,
+% Dynamics is not used in this example, Foo triggers an oll:warn
+\consistEE Score.Staff.Voice
 
 \layout {
   \context {
