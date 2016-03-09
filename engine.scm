@@ -55,7 +55,6 @@
         )))
 
 
-; TODO: "short-mom?" or "mom-pair?" ...
 ; TODO: this maybe also a candidate for another module (IIRC there has been some kind of rhythmic location in lily ...)
 
 ; a predicate for short input of ly:moment?s
@@ -67,22 +66,25 @@
    ((fraction? m)(ly:make-moment (car m) (cdr m)))
    ((ly:moment? v) v)
    (else (ly:make-moment 0/4))))
+; predicate for a pair of measure and short-mom
+(define (mom-pair? v)
+  (and (pair? v)
+       (integer? (car v))
+       (short-mom? (cdr v))))
 
 ; a predicate for short input of lists of ly:moment-pairs (measure+moment)
 (define (imom-list? v)
   (and (list? v)
        (every (lambda (p)
                 (or (integer? p)
-                    (and (pair? p)
-                         (integer? (car p))
-                         (short-mom? (cdr p)))))
+                    (mom-pair? p)))
          v)))
 ; convert to a list of measure/moment pairs
 (define (imom-list v)
   (map (lambda (m)
          (cond
           ((integer? m)(cons m (ly:make-moment 0 0)))
-          ((and (pair? m)(integer? (car m))(short-mom? (cdr m)))(cons (car m)(short-mom->moment (cdr m))))
+          ((mom-pair? m)(cons (car m)(short-mom->moment (cdr m))))
           (else (cons 0 (ly:make-moment 0 4)))))
     v))
 
