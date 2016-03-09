@@ -55,35 +55,39 @@
         )))
 
 
-; TODO: "mom?" should be named more concisly
-; TODO: "mom?" or "mom-pair?" ...
 ; TODO: this maybe also a candidate for another module (IIRC there has been some kind of rhythmic location in lily ...)
+; => this is https://github.com/openlilylib/snippets/blob/master/ly/utility/rhythmic-location.ily
+; and we should think about where to move that in the new structure anyway, then we'll see whether
+; it makes sense to move and merge the following code as well.
 
 ; a predicate for short input of ly:moment?s
-(define (mom? v)(or (integer? v)(fraction? v)(ly:moment? v)))
+(define (short-mom? v)(or (integer? v)(fraction? v)(ly:moment? v)))
 ; convert to a moment
-(define (mom->moment m)
+(define (short-mom->moment m)
   (cond
    ((integer? m)(ly:make-moment m/4))
    ((fraction? m)(ly:make-moment (car m) (cdr m)))
    ((ly:moment? v) v)
    (else (ly:make-moment 0/4))))
+; predicate for a pair of measure and short-mom
+(define (mom-pair? v)
+  (and (pair? v)
+       (integer? (car v))
+       (short-mom? (cdr v))))
 
 ; a predicate for short input of lists of ly:moment-pairs (measure+moment)
 (define (imom-list? v)
   (and (list? v)
        (every (lambda (p)
                 (or (integer? p)
-                    (and (pair? p)
-                         (integer? (car p))
-                         (mom? (cdr p)))))
+                    (mom-pair? p)))
          v)))
 ; convert to a list of measure/moment pairs
 (define (imom-list v)
   (map (lambda (m)
          (cond
           ((integer? m)(cons m (ly:make-moment 0 0)))
-          ((and (pair? m)(integer? (car m))(mom? (cdr m)))(cons (car m)(mom->moment (cdr m))))
+          ((mom-pair? m)(cons (car m)(short-mom->moment (cdr m))))
           (else (cons 0 (ly:make-moment 0 4)))))
     v))
 
@@ -308,8 +312,8 @@
 (define-public editionMod
   (define-void-function
    (edition-target measure moment context-edition-id mods)
-   (symbol? integer? mom? list? music-or-context-mod?)
-   (edition-mod edition-target measure (mom->moment moment) context-edition-id mods)))
+   (symbol? integer? short-mom? list? music-or-context-mod?)
+   (edition-mod edition-target measure (short-mom->moment moment) context-edition-id mods)))
 
 ; add modification(s) on multiple times
 (define-public (edition-mod-list edition-target context-edition-id mods mom-list)
