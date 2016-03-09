@@ -35,3 +35,24 @@
 % activate edition-engraver module
 #(use-modules (edition-engraver engine))
 
+% Install the edition-engraver in the contexts
+% specified by the argument list
+consistEE =
+#(define-scheme-function (contexts)(symbol-list?)
+   #{
+     \layout {
+       #(map
+         (lambda (ctx)
+           (if (and (defined? ctx)
+                    (ly:context-def? (eval ctx (current-module))))
+               #{
+                 \context {
+                   #(eval ctx (current-module))
+                   \consists \edition-engraver
+                 }
+               #}
+               ; TODO: Make the input location point to the location of the *caller*
+               (oll:warn (format "Trying to install edition-engraver to non-existent context ~a" ctx))))
+         contexts)
+     }
+   #})
