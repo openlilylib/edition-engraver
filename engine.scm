@@ -483,17 +483,21 @@
             ))
        (finalize .
          ,(lambda (trans)
-            (log-slot "finalize")
-            ; TODO edition.log
+            ;(log-slot "finalize")
             (if (eq? 'Score context-name)
-                (with-output-to-file
-                 (string-append (ly:parser-output-name (*parser*)) ".edition.log")
-                 (lambda ()
-                   (tree-walk context-counter '()
-                     (lambda (p k val)
-                       (if (string? val) (format #t "~A \"~A\"\n" p val))
-                       ) '(sort . #t))
-                   )))
+                (let ((current-moment (ly:context-current-moment context))
+                      (current-measure (ly:context-property context 'currentBarNumber))
+                      (measure-position (ly:context-property context 'measurePosition)))
+                  (ly:message "finalize ~A with ~A @ ~A / ~A-~A"
+                    context-edition-id edition-targets current-moment current-measure measure-position)
+                  (with-output-to-file
+                   (string-append (ly:parser-output-name (*parser*)) ".edition.log")
+                   (lambda ()
+                     (tree-walk context-counter '()
+                       (lambda (p k val)
+                         (if (string? val) (format #t "~A \"~A\"\n" p val))
+                         ) '(sort . #t))
+                     ))))
             ))
 
        ) ; /make-engraver
