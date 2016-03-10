@@ -418,7 +418,7 @@
             ;(ly:message "init ~A \"~A\"" context-edition-id (ly:context-id context))
             (for-each
              (lambda (context-edition-sid)
-               (ly:message "~A" context-edition-sid)
+               ;(ly:message "~A" context-edition-sid)
                (let ((mtree (tree-get-tree mod-tree context-edition-sid)))
                  (if (tree? mtree)
                      (tree-walk mtree '()
@@ -440,7 +440,7 @@
                                    ) '())
                (,@context-edition-id ,context-name ,(string->symbol (base26 context-edition-number)))
                ))
-            
+
             (tree-set! context-counter
               `(,@context-edition-id ,context-name)
               (cons context-edition-number context-id))
