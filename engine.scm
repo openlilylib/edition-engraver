@@ -369,9 +369,9 @@
     ; find mods for the current time-spec
     (define (find-mods)
       (let* (;(moment (ly:context-current-moment context))
-            (measure (ly:context-property context 'currentBarNumber))
-            (measurePos (ly:context-property context 'measurePosition))
-            (current-mods (tree-get context-mods (list measure measurePos))))
+              (measure (ly:context-property context 'currentBarNumber))
+              (measurePos (ly:context-property context 'measurePosition))
+              (current-mods (tree-get context-mods (list measure measurePos))))
         (if (list? current-mods) current-mods '())
         ))
 
@@ -407,21 +407,36 @@
                     (if (and (pair? nr)(integer? (car nr))) (+ (car nr) 1) 0)
                     ))
             ; copy all mods into this engravers mod-tree
-            (set! context-mods (tree-create (string->symbol
+            (set! context-mods
+                  (tree-create (string->symbol
                                              (string-join
                                               (map
                                                (lambda (s)
                                                  (format "~A" s))
                                                context-edition-id) ":"))))
-            (tree-walk (tree-get-tree mod-tree context-edition-id) '()
-              (lambda (path k val)
-                (let ((plen (length path)))
-                  (if (and (>= plen 3)(list? val)(member (last path) edition-targets))
-                      (let* ((subpath (list (list-ref path (- plen 3))(list-ref path (- plen 2))))
-                             (submods (tree-get context-mods subpath)))
-                        (tree-set! context-mods subpath
-                          (if (list? submods) (append submods val) val))
-                        )))))
+            ;(ly:message "init ~A" context-edition-id)
+            (for-each
+             (lambda (context-edition-sid)
+               ;(ly:message "~A" context-edition-sid)
+               (let ((mtree (tree-get-tree mod-tree context-edition-sid)))
+                 (if (tree? mtree)
+                     (tree-walk mtree '()
+                       (lambda (path k val)
+                         (let ((plen (length path)))
+                           (if (and (= plen 3)(list? val)
+                                    (integer? (list-ref path 0))
+                                    (member (list-ref path 2) edition-targets))
+                               (let* ((subpath (list (list-ref path 0)(list-ref path 1)))
+                                      (submods (tree-get context-mods subpath)))
+                                 (tree-set! context-mods subpath
+                                   (if (list? submods) (append submods val) val))
+                                 ))))
+                       ))))
+             `((,@context-edition-id ,context-name)
+               (,@context-edition-id ,context-id)
+               (,@context-edition-id ,context-name ,context-id)
+               (,@context-edition-id ,context-name ,(string->symbol (base26 context-edition-number)))
+               ))
             (tree-set! context-counter
               `(,@context-edition-id ,context-name)
               (cons context-edition-number context-id))
