@@ -295,13 +295,16 @@
         )) music)
     collected-mods))
 
+(define (create-mod-path edition-target measure moment context-edition-id)
+  `(,@context-edition-id ,measure ,moment ,edition-target))
+
 ; add modification(s)
 (define-public (edition-mod edition-target measure moment context-edition-id mods)
   (cond
    ((ly:context-mod? mods) (set! mods (list mods))) ; apply context-mod
    ((ly:music? mods) (set! mods (collect-mods mods #f))) ; collect mods from music expression
    )
-  (let* ((mod-path `(,edition-target ,measure ,moment ,@context-edition-id))
+  (let* ((mod-path (create-mod-path edition-target measure moment context-edition-id))
          (tmods (tree-get mod-tree mod-path))
          (tmods (if (list? tmods) tmods '())))
     ; (ly:message "mods ~A" mods)
@@ -346,13 +349,14 @@
 
 ; the edition-engraver
 (define-public (edition-engraver context)
-  (let ( (context-edition-id '()) ; it receives the context-edition-id from a context-property
+  (let ( (context-edition-id '()) ; it receives the context-edition-id from a context-property while initializing
          (context-edition-number 0)
          (context-name (ly:context-name context)) ; the context name (Voice, Staff or else)
          (context-id (let ((cid (ly:context-id context))) ; the context-id assigned by \new Context = "the-id" ...
                        (> (string-length cid) 0)
                        (string->symbol cid)
                        #f))
+         (context-mods #f)
          (once-mods '())
          )
 
@@ -373,8 +377,9 @@
           (if (and (list? mods)(> (length mods) 0))
               (set! current-mods `(,@current-mods ,@mods))))
         (for-each
-         (lambda (tag)
-           (let* ((mtree (tree-get-tree mod-tree `(,tag ,measure ,measurePos ,@context-edition-id))))
+         (lambda (edition-target-id)
+           ;(let* ((mtree (tree-get-tree mod-tree (create-mod-path edition-target-id measure measurePos context-edition-id))))
+           (let* ((mtree (tree-get-tree context-mods `(measure measurePos edition-target-id))))
              (if (tree? mtree)
                  (begin
                   (add-mods (tree-get mtree (list context-name)))
@@ -419,6 +424,7 @@
                   (let ((nr (tree-get context-counter `(,@context-edition-id ,context-name))))
                     (if (and (pair? nr)(integer? (car nr))) (+ (car nr) 1) 0)
                     ))
+            (set! context-mods (tree-get-tree mod-tree context-edition-id))
             (tree-set! context-counter
               `(,@context-edition-id ,context-name)
               (cons context-edition-number context-id))
