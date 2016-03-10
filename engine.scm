@@ -352,10 +352,11 @@
   (let ( (context-edition-id '()) ; it receives the context-edition-id from a context-property while initializing
          (context-edition-number 0)
          (context-name (ly:context-name context)) ; the context name (Voice, Staff or else)
-         (context-id (let ((cid (ly:context-id context))) ; the context-id assigned by \new Context = "the-id" ...
-                       (> (string-length cid) 0)
-                       (string->symbol cid)
-                       #f))
+         (context-id
+          (let ((cid (ly:context-id context))) ; the context-id assigned by \new Context = "the-id" ...
+            (if (> (string-length cid) 0)
+            (string->symbol cid)
+            #f)))
          (context-mods #f)
          (once-mods '())
          )
@@ -374,7 +375,7 @@
               (current-mods (tree-get context-mods (list measure measurePos))))
         (if (list? current-mods) current-mods '())
         ))
-
+;(ly:message "~A ~A" (ly:context-id context) context-id)
     `( ; TODO better use make-engraver macro?
        ; TODO slots: listeners, acknowledgers, end-acknowledgers, process-acknowledged
 
@@ -409,15 +410,15 @@
             ; copy all mods into this engravers mod-tree
             (set! context-mods
                   (tree-create (string->symbol
-                                             (string-join
-                                              (map
-                                               (lambda (s)
-                                                 (format "~A" s))
-                                               context-edition-id) ":"))))
-            ;(ly:message "init ~A" context-edition-id)
+                                (string-join
+                                 (map
+                                  (lambda (s)
+                                    (format "~A" s))
+                                  context-edition-id) ":"))))
+            ;(ly:message "init ~A \"~A\"" context-edition-id (ly:context-id context))
             (for-each
              (lambda (context-edition-sid)
-               ;(ly:message "~A" context-edition-sid)
+               (ly:message "~A" context-edition-sid)
                (let ((mtree (tree-get-tree mod-tree context-edition-sid)))
                  (if (tree? mtree)
                      (tree-walk mtree '()
@@ -433,10 +434,13 @@
                                  ))))
                        ))))
              `((,@context-edition-id ,context-name)
-               (,@context-edition-id ,context-id)
-               (,@context-edition-id ,context-name ,context-id)
+               ,@(if context-id `(
+                                   (,@context-edition-id ,context-id)
+                                   (,@context-edition-id ,context-name ,context-id)
+                                   ) '())
                (,@context-edition-id ,context-name ,(string->symbol (base26 context-edition-number)))
                ))
+            
             (tree-set! context-counter
               `(,@context-edition-id ,context-name)
               (cons context-edition-number context-id))
