@@ -378,16 +378,17 @@
               (set! current-mods `(,@current-mods ,@mods))))
         (for-each
          (lambda (edition-target-id)
-           ;(let* ((mtree (tree-get-tree mod-tree (create-mod-path edition-target-id measure measurePos context-edition-id))))
            (let* ((mtree (tree-get-tree context-mods `(measure measurePos edition-target-id))))
-             (if (tree? mtree)
+             (if (tree? context-mods)
                  (begin
-                  (add-mods (tree-get mtree (list context-name)))
-                  (add-mods (tree-get mtree (list context-name (string->symbol (base26 context-edition-number)))))
+                  (add-mods (tree-get context-mods (list context-name measure measurePos edition-target-id)))
+                  (add-mods (tree-get context-mods (list context-name
+                                                     (string->symbol (base26 context-edition-number))
+                                                     measure measurePos edition-target-id)))
                   (if context-id
                       (begin
-                       (add-mods (tree-get mtree (list context-id)))
-                       (add-mods (tree-get mtree (list context-name context-id)))
+                       (add-mods (tree-get mtree (list context-id measure measurePos edition-target-id)))
+                       (add-mods (tree-get mtree (list context-name context-id measure measurePos edition-target-id)))
                        ))
                   ))
              )) edition-targets)
@@ -424,7 +425,22 @@
                   (let ((nr (tree-get context-counter `(,@context-edition-id ,context-name))))
                     (if (and (pair? nr)(integer? (car nr))) (+ (car nr) 1) 0)
                     ))
-            (set! context-mods (tree-get-tree mod-tree context-edition-id))
+            ; copy all mods into this engravers mod-tree
+            (set! context-mods (tree-create (string->symbol
+                                             (string-join
+                                              (map
+                                               (lambda (s)
+                                                 (format "~A" s))
+                                               context-edition-id) ":"))))
+            (tree-walk (tree-get-tree mod-tree context-edition-id) '()
+              (lambda (path k val)
+                (let ((plen (length path)))
+                  (if (and (>= plen 3)(list? val)(member (last path) edition-targets))
+                      (let* ((subpath (list (list-ref path (- plen 3))(list-ref path (- plen 2))))
+                             (submods (tree-get context-mods subpath)))
+                        (tree-set! context-mods subpath
+                          (if (list? submods) (append submods val) val))
+                        )))))
             (tree-set! context-counter
               `(,@context-edition-id ,context-name)
               (cons context-edition-number context-id))
