@@ -368,31 +368,12 @@
 
     ; find mods for the current time-spec
     (define (find-mods)
-      (let ((current-mods '())
-            (moment (ly:context-current-moment context))
+      (let* (;(moment (ly:context-current-moment context))
             (measure (ly:context-property context 'currentBarNumber))
             (measurePos (ly:context-property context 'measurePosition))
-            )
-        (define (add-mods mods)
-          (if (and (list? mods)(> (length mods) 0))
-              (set! current-mods `(,@current-mods ,@mods))))
-        (for-each
-         (lambda (edition-target-id)
-           (let* ((mtree (tree-get-tree context-mods `(measure measurePos edition-target-id))))
-             (if (tree? context-mods)
-                 (begin
-                  (add-mods (tree-get context-mods (list context-name measure measurePos edition-target-id)))
-                  (add-mods (tree-get context-mods (list context-name
-                                                     (string->symbol (base26 context-edition-number))
-                                                     measure measurePos edition-target-id)))
-                  (if context-id
-                      (begin
-                       (add-mods (tree-get mtree (list context-id measure measurePos edition-target-id)))
-                       (add-mods (tree-get mtree (list context-name context-id measure measurePos edition-target-id)))
-                       ))
-                  ))
-             )) edition-targets)
-        current-mods))
+            (current-mods (tree-get context-mods (list measure measurePos))))
+        (if (list? current-mods) current-mods '())
+        ))
 
     `( ; TODO better use make-engraver macro?
        ; TODO slots: listeners, acknowledgers, end-acknowledgers, process-acknowledged
