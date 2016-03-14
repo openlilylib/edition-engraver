@@ -27,7 +27,13 @@
 
 \new Staff = "BACH" \with {
   \editionID along
-} <<
-  \new Voice \with { \voiceOne } { \repeat unfold 20 \relative c'' { bes4 a c b } }
-  \new Voice = "accom" \with { \voiceTwo } \repeat unfold 20 \relative c' { d4. e4 f8 g4 }
->>
+} {
+  <<
+    \repeat unfold 10 \relative c'' { bes4 a c b } \\
+    \repeat unfold 10 \relative c' { d4. e4 f8 g4 }
+  >>
+  <<
+    \repeat unfold 10 \relative c'' { bes4 a c b } \\
+    \repeat unfold 10 \relative c' { d4. e4 f8 g4 }
+  >>
+}

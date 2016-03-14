@@ -335,6 +335,7 @@
 (define-public inherit-edition-id 'ICEID) ; Inherit Context-Edition-ID
 
 (define context-counter (tree-create 'context-counter))
+(define current-engraver-slot #f)
 
 ;;;; TODO where to put this???
 (define (base26list nr suf)
@@ -375,6 +376,29 @@
               (current-mods (tree-get context-mods (list measure measurePos))))
         (if (list? current-mods) current-mods '())
         ))
+
+    (define (start-translation-timestep trans)
+            (log-slot "start-translation-timestep")
+            (set! current-engraver-slot 'start-translation-timestep)
+            (for-each
+             (lambda (mod)
+               (cond
+                ((override? mod)
+                 (if (is-revert mod)
+                     (do-revert context mod)
+                     (do-override context mod))
+                 ; if it is once, add to once-list
+                 (if (is-once mod) (set! once-mods (cons mod once-mods)))
+                 )
+                ((propset? mod)
+                 (do-propset context mod)
+                 (if (is-once mod) (set! once-mods (cons mod once-mods)))
+                 )
+                ((apply-context? mod) (do-apply context mod))
+                ((ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
+                )
+               ) (find-mods))
+            )
 ;(ly:message "~A ~A" (ly:context-id context) context-id)
     `( ; TODO better use make-engraver macro?
        ; TODO slots: listeners, acknowledgers, end-acknowledgers, process-acknowledged
@@ -449,6 +473,8 @@
                  ,(base26 context-edition-number))
               (if context-id context-id ""))
             (log-slot "initialize")
+            (if (eq? current-engraver-slot 'start-translation-timestep)
+                (start-translation-timestep trans))
             ))
 
        ; paper columns --> breaks
@@ -473,32 +499,12 @@
                   )))
          )
        ; start timestep
-       (start-translation-timestep .
-         ,(lambda (trans)
-            (log-slot "start-translation-timestep")
-            (for-each
-             (lambda (mod)
-               (cond
-                ((override? mod)
-                 (if (is-revert mod)
-                     (do-revert context mod)
-                     (do-override context mod))
-                 ; if it is once, add to once-list
-                 (if (is-once mod) (set! once-mods (cons mod once-mods)))
-                 )
-                ((propset? mod)
-                 (do-propset context mod)
-                 (if (is-once mod) (set! once-mods (cons mod once-mods)))
-                 )
-                ((apply-context? mod) (do-apply context mod))
-                ((ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
-                )
-               ) (find-mods))
-            ))
+       (start-translation-timestep . ,start-translation-timestep)
        ; stop/finish translation timestep
        (stop-translation-timestep .
          ,(lambda (trans)
             (log-slot "stop-translation-timestep")
+            (set! current-engraver-slot 'stop-translation-timestep)
             (for-each ; revert/reset once override/set
               (lambda (mod)
                 (cond
@@ -512,6 +518,7 @@
        (process-music .
          ,(lambda (trans)
             (log-slot "process-music")
+            (set! current-engraver-slot 'process-music)
             ))
        (finalize .
          ,(lambda (trans)
