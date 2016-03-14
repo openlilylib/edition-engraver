@@ -356,8 +356,8 @@
          (context-id
           (let ((cid (ly:context-id context))) ; the context-id assigned by \new Context = "the-id" ...
             (if (> (string-length cid) 0)
-            (string->symbol cid)
-            #f)))
+                (string->symbol cid)
+                #f)))
          (context-mods #f)
          (once-mods '())
          )
@@ -365,7 +365,7 @@
     ; log slot calls
     (define (log-slot slot) ; TODO: option verbose? oll logging function?
       (if (and (eq? (ly:context-property-where-defined context 'edition-engraver-log) context)
-               (ly:context-property context 'edition-engraver-log #f))
+               (eq? #t (ly:context-property context 'edition-engraver-log #f)))
           (ly:message "edition-engraver ~A ~A = \"~A\" : ~A" context-edition-id context-name context-id slot)))
 
     ; find mods for the current time-spec
@@ -377,29 +377,31 @@
         (if (list? current-mods) current-mods '())
         ))
 
+    ; define start-translation-timestep
     (define (start-translation-timestep trans)
-            (log-slot "start-translation-timestep")
-            (set! current-engraver-slot 'start-translation-timestep)
-            (for-each
-             (lambda (mod)
-               (cond
-                ((override? mod)
-                 (if (is-revert mod)
-                     (do-revert context mod)
-                     (do-override context mod))
-                 ; if it is once, add to once-list
-                 (if (is-once mod) (set! once-mods (cons mod once-mods)))
-                 )
-                ((propset? mod)
-                 (do-propset context mod)
-                 (if (is-once mod) (set! once-mods (cons mod once-mods)))
-                 )
-                ((apply-context? mod) (do-apply context mod))
-                ((ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
-                )
-               ) (find-mods))
-            )
-;(ly:message "~A ~A" (ly:context-id context) context-id)
+      (log-slot "start-translation-timestep")
+      (set! current-engraver-slot 'start-translation-timestep)
+      (for-each
+       (lambda (mod)
+         (cond
+          ((override? mod)
+           (if (is-revert mod)
+               (do-revert context mod)
+               (do-override context mod))
+           ; if it is once, add to once-list
+           (if (is-once mod) (set! once-mods (cons mod once-mods)))
+           )
+          ((propset? mod)
+           (do-propset context mod)
+           (if (is-once mod) (set! once-mods (cons mod once-mods)))
+           )
+          ((apply-context? mod) (do-apply context mod))
+          ((ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
+          )
+         ) (find-mods))
+      )
+
+    ;(ly:message "~A ~A" (ly:context-id context) context-id)
     `( ; TODO better use make-engraver macro?
        ; TODO slots: listeners, acknowledgers, end-acknowledgers, process-acknowledged
 
@@ -473,7 +475,7 @@
                  ,(base26 context-edition-number))
               (if context-id context-id ""))
             (log-slot "initialize")
-            (if (eq? current-engraver-slot 'start-translation-timestep)
+            (if (ly:moment<? (ly:make-moment 0/4) (ly:context-current-moment context))
                 (start-translation-timestep trans))
             ))
 

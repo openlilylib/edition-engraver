@@ -23,11 +23,16 @@
     \editionID ##f sing.with.bach
     %edition-engraver-log = ##t
   }
+  \context {
+    \Voice
+    edition-engraver-log = ##t
+  }
 }
 
 \new Staff = "BACH" \with {
   \editionID along
 } {
+  R1
   <<
     \repeat unfold 10 \relative c'' { bes4 a c b } \\
     \repeat unfold 10 \relative c' { d4. e4 f8 g4 }
