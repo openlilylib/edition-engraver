@@ -366,7 +366,7 @@
     (define (log-slot slot) ; TODO: option verbose? oll logging function?
       (if (and (eq? (ly:context-property-where-defined context 'edition-engraver-log) context)
                (eq? #t (ly:context-property context 'edition-engraver-log #f)))
-          (ly:message "edition-engraver ~A ~A = \"~A\" : ~A" context-edition-id context-name (if (symbol? context-id) (symbol->string context-id) "") slot)))
+          (ly:message "edition-engraver ~A ~A = \"~A\" : ~A @ ~A" context-edition-id context-name (if (symbol? context-id) (symbol->string context-id) "") slot (ly:context-current-moment context))))
 
     ; find mods for the current time-spec
     (define (find-mods)
@@ -377,7 +377,8 @@
         (if (list? current-mods) current-mods '())
         ))
 
-    ; define start-translation-timestep
+    ; define start-translation-timestep to use it in initialize if needed
+    ; TODO: prevent from running twice in one time step
     (define (start-translation-timestep trans)
       (log-slot "start-translation-timestep")
       (set! current-engraver-slot 'start-translation-timestep)
@@ -428,7 +429,7 @@
                             edition-id) ; no inherit
                         (find-edition-id (ly:context-parent context)))) ; no edition-id
                   '())) ; if context
-            
+
             (set! context-edition-id (find-edition-id context))
             (set! context-edition-number
                   (let ((nr (tree-get context-counter `(,@context-edition-id ,context-name))))
@@ -441,7 +442,7 @@
               `(,@context-edition-id ,context-name
                  ,(string->symbol (base26 context-edition-number)))
               (if context-id (symbol->string context-id) ""))
-            
+
             ; copy all mods into this engravers mod-tree
             (set! context-mods
                   (tree-create (string->symbol
