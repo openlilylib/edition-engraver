@@ -8,8 +8,9 @@
 \editionMod test 4 0/4 sing.with.bach.along.Voice.A \revert NoteHead.color
 \editionModList test sing.with.bach.Score \break #'(4 8 12 16)
 
-\editionMod test 1 2/4 sing.with.bach.along.Staff { \bar "||" \clef "alto" }
+\editionMod test 1 2/4 sing.with.bach.along.Staff \clef "alto"
 \editionMod test 2 2/4 sing.with.bach.along.Staff \clef "G"
+\editionMod test 4 0/4 sing.with.bach.along.Staff \bar ".|:-||"
 
 % "Install" the edition-engraver in a number of contexts.
 % The order is not relevant,
@@ -27,6 +28,6 @@
 \new Staff = "BACH" \with {
   \editionID along
 } <<
-  \repeat unfold 20 \relative c'' { bes4 a c b } \\
-  \repeat unfold 20 \relative c' { d4. e4 f8 g4 }
+  \new Voice \with { \voiceOne } { \repeat unfold 20 \relative c'' { bes4 a c b } }
+  \new Voice = "accom" \with { \voiceTwo } \repeat unfold 20 \relative c' { d4. e4 f8 g4 }
 >>

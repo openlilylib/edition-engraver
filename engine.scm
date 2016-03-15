@@ -295,13 +295,16 @@
         )) music)
     collected-mods))
 
+(define (create-mod-path edition-target measure moment context-edition-id)
+  `(,@context-edition-id ,measure ,moment ,edition-target))
+
 ; add modification(s)
 (define-public (edition-mod edition-target measure moment context-edition-id mods)
   (cond
    ((ly:context-mod? mods) (set! mods (list mods))) ; apply context-mod
    ((ly:music? mods) (set! mods (collect-mods mods #f))) ; collect mods from music expression
    )
-  (let* ((mod-path `(,edition-target ,measure ,moment ,@context-edition-id))
+  (let* ((mod-path (create-mod-path edition-target measure moment context-edition-id))
          (tmods (tree-get mod-tree mod-path))
          (tmods (if (list? tmods) tmods '())))
     ; (ly:message "mods ~A" mods)
@@ -346,13 +349,15 @@
 
 ; the edition-engraver
 (define-public (edition-engraver context)
-  (let ( (context-edition-id '()) ; it receives the context-edition-id from a context-property
+  (let ( (context-edition-id '()) ; it receives the context-edition-id from a context-property while initializing
          (context-edition-number 0)
          (context-name (ly:context-name context)) ; the context name (Voice, Staff or else)
-         (context-id (let ((cid (ly:context-id context))) ; the context-id assigned by \new Context = "the-id" ...
-                       (> (string-length cid) 0)
-                       (string->symbol cid)
-                       #f))
+         (context-id
+          (let ((cid (ly:context-id context))) ; the context-id assigned by \new Context = "the-id" ...
+            (if (> (string-length cid) 0)
+            (string->symbol cid)
+            #f)))
+         (context-mods #f)
          (once-mods '())
          )
 
@@ -364,30 +369,13 @@
 
     ; find mods for the current time-spec
     (define (find-mods)
-      (let ((current-mods '())
-            (moment (ly:context-current-moment context))
-            (measure (ly:context-property context 'currentBarNumber))
-            (measurePos (ly:context-property context 'measurePosition))
-            )
-        (define (add-mods mods)
-          (if (and (list? mods)(> (length mods) 0))
-              (set! current-mods `(,@current-mods ,@mods))))
-        (for-each
-         (lambda (tag)
-           (let* ((mtree (tree-get-tree mod-tree `(,tag ,measure ,measurePos ,@context-edition-id))))
-             (if (tree? mtree)
-                 (begin
-                  (add-mods (tree-get mtree (list context-name)))
-                  (add-mods (tree-get mtree (list context-name (string->symbol (base26 context-edition-number)))))
-                  (if context-id
-                      (begin
-                       (add-mods (tree-get mtree (list context-id)))
-                       (add-mods (tree-get mtree (list context-name context-id)))
-                       ))
-                  ))
-             )) edition-targets)
-        current-mods))
-
+      (let* (;(moment (ly:context-current-moment context))
+              (measure (ly:context-property context 'currentBarNumber))
+              (measurePos (ly:context-property context 'measurePosition))
+              (current-mods (tree-get context-mods (list measure measurePos))))
+        (if (list? current-mods) current-mods '())
+        ))
+;(ly:message "~A ~A" (ly:context-id context) context-id)
     `( ; TODO better use make-engraver macro?
        ; TODO slots: listeners, acknowledgers, end-acknowledgers, process-acknowledged
 
@@ -419,6 +407,40 @@
                   (let ((nr (tree-get context-counter `(,@context-edition-id ,context-name))))
                     (if (and (pair? nr)(integer? (car nr))) (+ (car nr) 1) 0)
                     ))
+            ; copy all mods into this engravers mod-tree
+            (set! context-mods
+                  (tree-create (string->symbol
+                                (string-join
+                                 (map
+                                  (lambda (s)
+                                    (format "~A" s))
+                                  context-edition-id) ":"))))
+            ;(ly:message "init ~A \"~A\"" context-edition-id (ly:context-id context))
+            (for-each
+             (lambda (context-edition-sid)
+               ;(ly:message "~A" context-edition-sid)
+               (let ((mtree (tree-get-tree mod-tree context-edition-sid)))
+                 (if (tree? mtree)
+                     (tree-walk mtree '()
+                       (lambda (path k val)
+                         (let ((plen (length path)))
+                           (if (and (= plen 3)(list? val)
+                                    (integer? (list-ref path 0))
+                                    (member (list-ref path 2) edition-targets))
+                               (let* ((subpath (list (list-ref path 0)(list-ref path 1)))
+                                      (submods (tree-get context-mods subpath)))
+                                 (tree-set! context-mods subpath
+                                   (if (list? submods) (append submods val) val))
+                                 ))))
+                       ))))
+             `((,@context-edition-id ,context-name)
+               ,@(if context-id `(
+                                   (,@context-edition-id ,context-id)
+                                   (,@context-edition-id ,context-name ,context-id)
+                                   ) '())
+               (,@context-edition-id ,context-name ,(string->symbol (base26 context-edition-number)))
+               ))
+
             (tree-set! context-counter
               `(,@context-edition-id ,context-name)
               (cons context-edition-number context-id))
