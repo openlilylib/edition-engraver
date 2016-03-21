@@ -378,7 +378,6 @@
         ))
 
     ; define start-translation-timestep to use it in initialize if needed
-    ; TODO: prevent from running twice in one time step
     (define (start-translation-timestep trans)
       (log-slot "start-translation-timestep")
       (if (or (not start-translation-timestep-moment)
