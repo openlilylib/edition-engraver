@@ -355,17 +355,18 @@
          (context-id
           (let ((cid (ly:context-id context))) ; the context-id assigned by \new Context = "the-id" ...
             (if (> (string-length cid) 0)
-            (string->symbol cid)
-            #f)))
+                (string->symbol cid)
+                #f)))
          (context-mods #f)
          (once-mods '())
+         (start-translation-timestep-moment #f)
          )
 
     ; log slot calls
     (define (log-slot slot) ; TODO: option verbose? oll logging function?
       (if (and (eq? (ly:context-property-where-defined context 'edition-engraver-log) context)
-               (ly:context-property context 'edition-engraver-log #f))
-          (ly:message "edition-engraver ~A ~A = \"~A\" : ~A" context-edition-id context-name context-id slot)))
+               (eq? #t (ly:context-property context 'edition-engraver-log #f)))
+          (ly:message "edition-engraver ~A ~A = \"~A\" : ~A @ ~A" context-edition-id context-name (if (symbol? context-id) (symbol->string context-id) "") slot (ly:context-current-moment context))))
 
     ; find mods for the current time-spec
     (define (find-mods)
@@ -375,7 +376,35 @@
               (current-mods (tree-get context-mods (list measure measurePos))))
         (if (list? current-mods) current-mods '())
         ))
-;(ly:message "~A ~A" (ly:context-id context) context-id)
+
+    ; define start-translation-timestep to use it in initialize if needed
+    (define (start-translation-timestep trans)
+      (log-slot "start-translation-timestep")
+      (if (or (not start-translation-timestep-moment)
+              (ly:moment<? start-translation-timestep-moment (ly:context-now context)))
+          (for-each
+           (lambda (mod)
+             (cond
+              ((override? mod)
+               (if (is-revert mod)
+                   (do-revert context mod)
+                   (do-override context mod))
+               ; if it is once, add to once-list
+               (if (is-once mod) (set! once-mods (cons mod once-mods)))
+               )
+              ((propset? mod)
+               (do-propset context mod)
+               (if (is-once mod) (set! once-mods (cons mod once-mods)))
+               )
+              ((apply-context? mod) (do-apply context mod))
+              ((ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
+              )
+             ) (find-mods)))
+      (set! start-translation-timestep-moment #f)
+      )
+
+
+    ;(ly:message "~A ~A" (ly:context-id context) context-id)
     `( ; TODO better use make-engraver macro?
        ; TODO slots: listeners, acknowledgers, end-acknowledgers, process-acknowledged
 
@@ -402,11 +431,20 @@
                             edition-id) ; no inherit
                         (find-edition-id (ly:context-parent context)))) ; no edition-id
                   '())) ; if context
+
             (set! context-edition-id (find-edition-id context))
             (set! context-edition-number
                   (let ((nr (tree-get context-counter `(,@context-edition-id ,context-name))))
                     (if (and (pair? nr)(integer? (car nr))) (+ (car nr) 1) 0)
                     ))
+            (tree-set! context-counter
+              `(,@context-edition-id ,context-name)
+              (cons context-edition-number context-id))
+            (tree-set! context-counter
+              `(,@context-edition-id ,context-name
+                 ,(string->symbol (base26 context-edition-number))) ; we need a symbol for the path
+              (if context-id (symbol->string context-id) "")) ; we need a string here
+
             ; copy all mods into this engravers mod-tree
             (set! context-mods
                   (tree-create (string->symbol
@@ -441,14 +479,13 @@
                (,@context-edition-id ,context-name ,(string->symbol (base26 context-edition-number)))
                ))
 
-            (tree-set! context-counter
-              `(,@context-edition-id ,context-name)
-              (cons context-edition-number context-id))
-            (tree-set! context-counter
-              `(,@context-edition-id ,context-name
-                 ,(base26 context-edition-number))
-              (if context-id context-id ""))
             (log-slot "initialize")
+            ; if the now-moment is greater than 0, this is an instantly created context,
+            ; so we need to call start-translation-timestep here.
+            (let ((now (ly:context-now context)))
+              (if (ly:moment<? (ly:make-moment 0/4) now)
+                  (start-translation-timestep trans))
+              (set! start-translation-timestep-moment now))
             ))
 
        ; paper columns --> breaks
@@ -473,28 +510,7 @@
                   )))
          )
        ; start timestep
-       (start-translation-timestep .
-         ,(lambda (trans)
-            (log-slot "start-translation-timestep")
-            (for-each
-             (lambda (mod)
-               (cond
-                ((override? mod)
-                 (if (is-revert mod)
-                     (do-revert context mod)
-                     (do-override context mod))
-                 ; if it is once, add to once-list
-                 (if (is-once mod) (set! once-mods (cons mod once-mods)))
-                 )
-                ((propset? mod)
-                 (do-propset context mod)
-                 (if (is-once mod) (set! once-mods (cons mod once-mods)))
-                 )
-                ((apply-context? mod) (do-apply context mod))
-                ((ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
-                )
-               ) (find-mods))
-            ))
+       (start-translation-timestep . ,start-translation-timestep)
        ; stop/finish translation timestep
        (stop-translation-timestep .
          ,(lambda (trans)
@@ -525,6 +541,7 @@
                   (with-output-to-file
                    (string-append (ly:parser-output-name (*parser*)) ".edition.log")
                    (lambda ()
+                     (tree-display context-counter)
                      (tree-walk context-counter '()
                        (lambda (p k val)
                          (if (string? val) (format #t "~A \"~A\"\n" p val))
