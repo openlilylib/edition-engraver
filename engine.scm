@@ -335,7 +335,6 @@
 (define-public inherit-edition-id 'ICEID) ; Inherit Context-Edition-ID
 
 (define context-counter (tree-create 'context-counter))
-(define current-engraver-slot #f)
 
 ;;;; TODO where to put this???
 (define (base26list nr suf)
@@ -360,6 +359,7 @@
                 #f)))
          (context-mods #f)
          (once-mods '())
+         (start-translation-timestep-moment #f)
          )
 
     ; log slot calls
@@ -381,26 +381,29 @@
     ; TODO: prevent from running twice in one time step
     (define (start-translation-timestep trans)
       (log-slot "start-translation-timestep")
-      (set! current-engraver-slot 'start-translation-timestep)
-      (for-each
-       (lambda (mod)
-         (cond
-          ((override? mod)
-           (if (is-revert mod)
-               (do-revert context mod)
-               (do-override context mod))
-           ; if it is once, add to once-list
-           (if (is-once mod) (set! once-mods (cons mod once-mods)))
-           )
-          ((propset? mod)
-           (do-propset context mod)
-           (if (is-once mod) (set! once-mods (cons mod once-mods)))
-           )
-          ((apply-context? mod) (do-apply context mod))
-          ((ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
-          )
-         ) (find-mods))
+      (if (or (not start-translation-timestep-moment)
+              (ly:moment<? start-translation-timestep-moment (ly:context-now context)))
+          (for-each
+           (lambda (mod)
+             (cond
+              ((override? mod)
+               (if (is-revert mod)
+                   (do-revert context mod)
+                   (do-override context mod))
+               ; if it is once, add to once-list
+               (if (is-once mod) (set! once-mods (cons mod once-mods)))
+               )
+              ((propset? mod)
+               (do-propset context mod)
+               (if (is-once mod) (set! once-mods (cons mod once-mods)))
+               )
+              ((apply-context? mod) (do-apply context mod))
+              ((ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
+              )
+             ) (find-mods)))
+      (set! start-translation-timestep-moment #f)
       )
+
 
     ;(ly:message "~A ~A" (ly:context-id context) context-id)
     `( ; TODO better use make-engraver macro?
@@ -440,8 +443,8 @@
               (cons context-edition-number context-id))
             (tree-set! context-counter
               `(,@context-edition-id ,context-name
-                 ,(string->symbol (base26 context-edition-number)))
-              (if context-id (symbol->string context-id) ""))
+                 ,(string->symbol (base26 context-edition-number))) ; we need a symbol for the path
+              (if context-id (symbol->string context-id) "")) ; we need a string here
 
             ; copy all mods into this engravers mod-tree
             (set! context-mods
@@ -478,8 +481,12 @@
                ))
 
             (log-slot "initialize")
-            (if (ly:moment<? (ly:make-moment 0/4) (ly:context-now context))
-                (start-translation-timestep trans))
+            ; if the now-moment is greater than 0, this is an instantly created context,
+            ; so we need to call start-translation-timestep here.
+            (let ((now (ly:context-now context)))
+              (if (ly:moment<? (ly:make-moment 0/4) now)
+                  (start-translation-timestep trans))
+              (set! start-translation-timestep-moment now))
             ))
 
        ; paper columns --> breaks
@@ -509,7 +516,6 @@
        (stop-translation-timestep .
          ,(lambda (trans)
             (log-slot "stop-translation-timestep")
-            (set! current-engraver-slot 'stop-translation-timestep)
             (for-each ; revert/reset once override/set
               (lambda (mod)
                 (cond
@@ -523,7 +529,6 @@
        (process-music .
          ,(lambda (trans)
             (log-slot "process-music")
-            (set! current-engraver-slot 'process-music)
             ))
        (finalize .
          ,(lambda (trans)
