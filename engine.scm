@@ -67,7 +67,7 @@
   (cond
    ((integer? m)(ly:make-moment m/4))
    ((fraction? m)(ly:make-moment (car m) (cdr m)))
-   ((ly:moment? v) v)
+   ((ly:moment? m) m)
    (else (ly:make-moment 0/4))))
 ; predicate for a pair of measure and short-mom
 (define (mom-pair? v)
