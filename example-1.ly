@@ -8,7 +8,7 @@
 \editionMod test 2 2/4 sing.with.bach.along.Voice.B \override NoteHead.color = #green
 \editionMod test 2 3/4 sing.with.bach.along.Voice.B \override NoteHead.color = #blue
 \editionMod test 3 1/4 sing.with.bach.along.Voice.B \revert NoteHead.color
-% how to enter this?
+% TODO how to enter this?
 \editionMod test 5 0/4 sing.with.bach.along.Voice.#(string->symbol "1") \revert NoteHead.color
 
 \editionMod test 13 3/8 sing.with.bach.along.Voice.C \once \override NoteHead.color = #red
@@ -19,6 +19,10 @@
 \editionMod test 2 2/4 sing.with.bach.along.Staff \clef "alto"
 \editionMod test 3 2/4 sing.with.bach.along.Staff \clef "G"
 \editionMod test 5 0/4 sing.with.bach.along.Staff \bar ".|:-||"
+
+\editionMod test 5 1/4 sing.with.bach.along.Staff ^"Hallo"
+\editionMod test 9 0/4 sing.with.bach.along.Staff \mark \default
+\editionMod test 10 0/4 sing.with.bach.along.Staff \mark \default
 
 % "Install" the edition-engraver in a number of contexts.
 % The order is not relevant,
@@ -33,7 +37,7 @@
   }
   \context {
     \Voice
-    edition-engraver-log = ##t
+    %edition-engraver-log = ##t
   }
 }
 

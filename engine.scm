@@ -226,6 +226,7 @@
     (get-edition-list)))
 
 ; collect mods, accepted by the engraver, from a music expression
+; TODO should mods be separated by engraver-slot? (e.g. start-timestep - process-music - acknowledger - listener)
 (define (collect-mods music context)
   (let ((collected-mods '()))
     (for-some-music
@@ -287,6 +288,11 @@
 
         ; Breaks and applyOutput
         ((memq (ly:music-property m 'name) '(LineBreakEvent PageBreakEvent PageTurnEvent ApplyOutputEvent))
+         (set! collected-mods `(,@collected-mods ,m))
+         #t
+         )
+        ; TextScript and Mark
+        ((memq (ly:music-property m 'name) '(TextScriptEvent MarkEvent))
          (set! collected-mods `(,@collected-mods ,m))
          #t
          )
@@ -525,10 +531,37 @@
               once-mods)
             (set! once-mods '()) ; reset once-mods
             ))
+       ; process music
        (process-music .
          ,(lambda (trans)
             (log-slot "process-music")
+            (for-each ; revert/reset once override/set
+              (lambda (mod)
+                (cond
+                 ((and (ly:music? mod) (eq? 'TextScriptEvent (ly:music-property mod 'name)))
+                  (let ((grob (ly:engraver-make-grob trans 'TextScript '()))
+                        (text (ly:music-property mod 'text))
+                        (direction (ly:music-property mod 'direction #f)))
+                    (ly:grob-set-property! grob 'text text)
+                    (if direction (ly:grob-set-property! grob 'direction direction))
+                    ))
+                 ((and (ly:music? mod) (eq? 'MarkEvent (ly:music-property mod 'name)))
+                  (let ((grob (ly:engraver-make-grob trans 'RehearsalMark '()))
+                        (text (ly:music-property mod 'label)))
+                    (if (not (markup? text))
+                        (let ((rmi (ly:context-property context 'rehearsalMark))
+                              (rmf (ly:context-property context 'markFormatter)))
+                          (if (and (integer? rmi)(procedure? rmf))
+                              (let ((rmc (ly:context-property-where-defined context 'rehearsalMark)))
+                                (set! text (rmf rmi rmc))
+                                (ly:context-set-property! rmc 'rehearsalMark (+ 1 rmi))
+                                ))))
+                    (ly:grob-set-property! grob 'text text)
+                    ))
+                 ))
+              (find-mods))
             ))
+       ; finalize engraver
        (finalize .
          ,(lambda (trans)
             ;(log-slot "finalize")
@@ -538,6 +571,7 @@
                       (measure-position (ly:context-property context 'measurePosition)))
                   (ly:message "finalize ~A with ~A @ ~A / ~A-~A"
                     context-edition-id edition-targets current-moment current-measure measure-position)
+                  ; TODO format <file>.edition.log
                   (with-output-to-file
                    (string-append (ly:parser-output-name (*parser*)) ".edition.log")
                    (lambda ()
