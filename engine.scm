@@ -354,7 +354,7 @@
 ;;;;
 
 ; the edition-engraver
-(define-public (edition-engraver context)
+(define-public (edition-engraver context) ; TODO better use make-engraver macro?
   (let ( (context-edition-id '()) ; it receives the context-edition-id from a context-property while initializing
          (context-edition-number 0)
          (context-name (ly:context-name context)) ; the context name (Voice, Staff or else)
@@ -411,8 +411,7 @@
 
 
     ;(ly:message "~A ~A" (ly:context-id context) context-id)
-    `( ; TODO better use make-engraver macro?
-       ; TODO slots: listeners, acknowledgers, end-acknowledgers, process-acknowledged
+    `( ; TODO slots: listeners, acknowledgers, end-acknowledgers, process-acknowledged
 
        ; initialize engraver with its own id
        (initialize .
