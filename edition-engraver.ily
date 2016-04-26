@@ -34,30 +34,5 @@
 
 % activate edition-engraver module
 #(use-modules (edition-engraver engine))
+% Function to consist the EE in multiple contexts
 \include "util/consist-to-contexts.ily"
-
-% Install the edition-engraver in the contexts
-% specified by the argument list
-
-% This function is deprecated,
-% Please remove ASAP!
-consistEE =
-#(define-scheme-function (contexts)(symbol-list?)
-   (oll:warn "\\consistEE is deprecated. Please use \\consistToContexts #edition-engraver <context-list>")
-   #{
-     \layout {
-       #(map
-         (lambda (ctx)
-           (if (and (defined? ctx)
-                    (ly:context-def? (module-ref (current-module) ctx)))
-               #{
-                 \context {
-                   #(module-ref (current-module) ctx)
-                   \consists \edition-engraver
-                 }
-               #}
-               ; TODO: Make the input location point to the location of the *caller*
-               (oll:warn (format "Trying to install edition-engraver to non-existent context ~a" ctx))))
-         contexts)
-     }
-   #})
