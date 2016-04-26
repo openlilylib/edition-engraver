@@ -34,11 +34,16 @@
 
 % activate edition-engraver module
 #(use-modules (edition-engraver engine))
+\include "util/consist-to-contexts.ily"
 
 % Install the edition-engraver in the contexts
 % specified by the argument list
+
+% This function is deprecated,
+% Please remove ASAP!
 consistEE =
 #(define-scheme-function (contexts)(symbol-list?)
+   (oll:warn "\\consistEE is deprecated. Please use \\consistToContexts #edition-engraver <context-list>")
    #{
      \layout {
        #(map

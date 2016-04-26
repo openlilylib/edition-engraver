@@ -27,7 +27,7 @@
 % "Install" the edition-engraver in a number of contexts.
 % The order is not relevant,
 % Dynamics is not used in this example, Foo triggers an oll:warn
-\consistEE Score.Staff.Voice
+\consistToContexts #edition-engraver Score.Staff.Voice
 
 \layout {
   \context {
