@@ -31,6 +31,7 @@
 
 \version "2.19.43"
 \include "edition-engraver.ily"
+\include "../oll-core/util/consist-to-contexts.ily"
 
 % In this example we introduce a method to easily enter lists of mods
 % (the function provided here shall be moved to be available at once,
@@ -107,6 +108,10 @@ modproc = \once \override NoteHead.color = \etc
 \addModList 1 5/8 #blue
 \addModList 2 5/8 #yellow % order of input doesn't matter, but is recommended
 \addModList 2 0/8 #green
+
+% display modlist:
+#(display modlist)
+
 % actually add mods
 \finishModList
 
