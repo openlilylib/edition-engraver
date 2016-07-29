@@ -30,9 +30,9 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \version "2.19.36"
-\include "oll-core.ily"
+\include "oll-core/package.ily"
 
 % activate edition-engraver module
 #(use-modules (edition-engraver engine))
 % Function to consist the EE in multiple contexts
-\include "util/consist-to-contexts.ily"
+\include "oll-core/util/consist-to-contexts.ily"
