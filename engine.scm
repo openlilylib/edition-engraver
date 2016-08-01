@@ -61,7 +61,7 @@
 ; it makes sense to move and merge the following code as well.
 
 ; a predicate for short input of ly:moment?s
-(define (short-mom? v)(or (integer? v)(fraction? v)(ly:moment? v)))
+(define (short-mom? v)(or (integer? v)(fraction? v)(rational? v)(ly:moment? v)))
 ; convert to a moment
 (define (short-mom->moment m)
   (cond
@@ -71,9 +71,10 @@
    (else (ly:make-moment 0/4))))
 ; predicate for a pair of measure and short-mom
 (define (mom-pair? v)
-  (and (pair? v)
+  (and (or (pair? v)
+           (and (list? v)(= 2 (length v))))
        (integer? (car v))
-       (short-mom? (cdr v))))
+       (short-mom? (cadr v))))
 
 ; a predicate for short input of lists of ly:moment-pairs (measure+moment)
 (define (imom-list? v)
