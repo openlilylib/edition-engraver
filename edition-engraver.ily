@@ -30,7 +30,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \version "2.19.36"
-\include "oll-core/oll-core.ily"
+\include "oll-core/package.ily"
 
 % activate edition-engraver module
 #(use-modules (edition-engraver engine))
