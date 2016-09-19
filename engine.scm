@@ -131,10 +131,50 @@
 (define-public (propset? p)(is-a? p <propset>))
 ; propset -> string
 (define-method (propset->string (ps <propset>))
-  (format "~A\\set ~A = ~A" (if (is-once ps) "once " "") (string-append (if (get-context ps) (format "~A." (get-context ps)) "") (format "~A" (get-symbol ps))) (get-value ps)))
+  (format "~A\\set ~A = ~A" (if (is-once ps) "\\once " "") (string-append (if (get-context ps) (format "~A." (get-context ps)) "") (format "~A" (get-symbol ps))) (get-value ps)))
 (export propset->string)
 ; display propset
 (define-method (display (o <propset>) port) (display (propset->string o) port))
+
+
+
+;;; property set as a class
+(define-class <propunset> ()
+  (once #:init-value #t #:accessor is-once #:setter set-once! #:init-keyword #:once)
+  (symbol #:accessor get-symbol #:setter set-symbol! #:init-keyword #:symbol)
+  (previous #:accessor get-previous #:setter set-previous! #:init-value #f)
+  (context #:accessor get-context #:setter set-context! #:init-keyword #:context)
+  )
+
+; execute property set
+(define-method (do-propunset context (prop <propunset>))
+  (if (get-context prop)
+      (let ((parent-context (ly:context-find context (get-context prop))))
+        (if (ly:context? parent-context) (set! context parent-context))))
+  (set-previous! prop (ly:context-property context (get-symbol prop)))
+  (ly:message "~A" prop)
+  (ly:context-unset-property context (get-symbol prop))
+  )
+(export do-propunset)
+
+; execute property reset
+(define-method (reunset-prop context (prop <propunset>))
+  (if (get-context prop)
+      (let ((parent-context (ly:context-find context (get-context prop))))
+        (if (ly:context? parent-context) (set! context parent-context))))
+  (ly:context-set-property! context (get-symbol prop) (get-previous prop))
+  )
+(export reunset-prop)
+
+; propset predicate
+(define-public (propunset? p)(is-a? p <propunset>))
+; propset -> string
+(define-method (propunset->string (ps <propunset>))
+  (format "~A\\unset ~A" (if (is-once ps) "\\once " "")
+    (string-append (if (get-context ps) (format "~A." (get-context ps)) "") (format "~A" (get-symbol ps)))))
+(export propunset->string)
+; display propset
+(define-method (display (o <propunset>) port) (display (propunset->string o) port))
 
 
 
@@ -280,6 +320,16 @@
            (set! collected-mods `(,@collected-mods ,mod))
            #t
            ))
+        
+        ; \unset property = ...
+        ((eq? 'PropertyUnset (ly:music-property m 'name))
+         (let* ((once (ly:music-property m 'once #f))
+                (symbol (ly:music-property m 'symbol))
+                (mod (make <propunset> #:once once #:symbol symbol #:context context)))
+           (set! collected-mods `(,@collected-mods ,mod))
+           #t
+           ))
+        
         ; \applyContext ...
         ((eq? 'ApplyContext (ly:music-property m 'name))
          (let* ((proc (ly:music-property m 'procedure))
@@ -402,6 +452,10 @@
                )
               ((propset? mod)
                (do-propset context mod)
+               (if (is-once mod) (set! once-mods (cons mod once-mods)))
+               )
+              ((propunset? mod)
+               (do-propunset context mod)
                (if (is-once mod) (set! once-mods (cons mod once-mods)))
                )
               ((apply-context? mod) (do-apply context mod))
