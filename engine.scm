@@ -320,7 +320,7 @@
            (set! collected-mods `(,@collected-mods ,mod))
            #t
            ))
-        
+
         ; \unset property = ...
         ((eq? 'PropertyUnset (ly:music-property m 'name))
          (let* ((once (ly:music-property m 'once #f))
@@ -329,7 +329,7 @@
            (set! collected-mods `(,@collected-mods ,mod))
            #t
            ))
-        
+
         ; \applyContext ...
         ((eq? 'ApplyContext (ly:music-property m 'name))
          (let* ((proc (ly:music-property m 'procedure))
@@ -345,6 +345,11 @@
          )
         ; TextScript and Mark
         ((memq (ly:music-property m 'name) '(TextScriptEvent MarkEvent))
+         (set! collected-mods `(,@collected-mods ,m))
+         #t
+         )
+        ; TextScript and Mark
+        ((memq (ly:music-property m 'name) '(KeyChangeEvent))
          (set! collected-mods `(,@collected-mods ,m))
          #t
          )
@@ -459,6 +464,12 @@
                (if (is-once mod) (set! once-mods (cons mod once-mods)))
                )
               ((apply-context? mod) (do-apply context mod))
+              ((and (ly:music? mod)(eq? 'KeyChangeEvent (ly:music-property mod 'name)))
+               (ly:broadcast (ly:context-event-source context)
+                 (ly:make-stream-event
+                  (ly:make-event-class 'key-change-event)
+                  `((pitch-alist . ,(ly:music-property mod 'pitch-alist))(tonic . ,(ly:music-property mod 'tonic)))))
+               )
               ((ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
               )
              ) (find-mods)))
