@@ -348,8 +348,13 @@
          (set! collected-mods `(,@collected-mods ,m))
          #t
          )
-        ; TextScript and Mark
+        ; KeySignature
         ((memq (ly:music-property m 'name) '(KeyChangeEvent))
+         (set! collected-mods `(,@collected-mods ,m))
+         #t
+         )
+        ; Extender, Hyphen
+        ((memq (ly:music-property m 'name) '(HyphenEvent ExtenderEvent))
          (set! collected-mods `(,@collected-mods ,m))
          #t
          )
@@ -468,7 +473,19 @@
                (ly:broadcast (ly:context-event-source context)
                  (ly:make-stream-event
                   (ly:make-event-class 'key-change-event)
-                  `((pitch-alist . ,(ly:music-property mod 'pitch-alist))(tonic . ,(ly:music-property mod 'tonic)))))
+                  (ly:music-mutable-properties mod)))
+               )
+              ((and (ly:music? mod)(eq? 'ExtenderEvent (ly:music-property mod 'name)))
+               (ly:broadcast (ly:context-event-source context)
+                 (ly:make-stream-event
+                  (ly:make-event-class 'extender-event)
+                  (ly:music-mutable-properties mod)))
+               )
+              ((and (ly:music? mod)(eq? 'HyphenEvent (ly:music-property mod 'name)))
+               (ly:broadcast (ly:context-event-source context)
+                 (ly:make-stream-event
+                  (ly:make-event-class 'hyphen-event)
+                  (ly:music-mutable-properties mod)))
                )
               ((ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
               )
