@@ -29,12 +29,60 @@
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\version "2.19.36"
-\include "oll-core/package.ily"
+\version "2.19.37"
+\include "edition-engraver/package.ily"
 
-% activate edition-engraver module
-#(use-modules (edition-engraver engine))
-% Function to consist the EE in multiple contexts
-\include "oll-core/util/consist-to-contexts.ily"
+\activateIdMods Tie.NoteHead.Beam
 
-\include "id-mods.ily"
+% Apply a single property override to a single grob
+\idMod #'b color #red
+
+% Apply multiple property overrides to a single grob
+\idMods A
+#`((color . ,blue)
+   (extra-offset . (-1.5 . -0.5)))
+
+\relative c' {
+  <c -\tweak Tie.eid #'a ~
+  \tweak eid #'A
+  e
+  -\tweak Tie.eid #'b ~
+  g -\tweak Tie.eid #'c ~
+  c -\tweak Tie.eid #'d ~
+  >1
+  <c e g c>
+}
+
+% Apply the same property override to multiple grobs
+\idModList positions #'(4 . 4) #'(Ba Bb Bc Bd)
+\relative {
+  \stemUp
+  \once \override Beam.eid = #'Ba
+  c'8 d e f
+  \once \override Beam.eid = #'Bb
+  g e d b'
+  \once \override Beam.eid = #'Bc
+  c e a, c
+  \once \override Beam.eid = #'Bd
+  fis, a dis, fis
+}
+
+% Apply different values to the same property of multiple grobs
+% Not specifying the value for a grob uses the default
+\idVarModList color #red
+#`((Be . ,blue)
+   (Bf . ,magenta)
+   Bg
+   (Bh . ,green))
+
+\relative {
+  \stemUp
+  \once \override Beam.eid = #'Be
+  c'8 d e f
+  \once \override Beam.eid = #'Bf
+  g e d b'
+  \once \override Beam.eid = #'Bg
+  c e a, c
+  \once \override Beam.eid = #'Bh
+  fis, a dis, fis
+}
