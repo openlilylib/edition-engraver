@@ -43,10 +43,23 @@
 \consistToContexts #edition-engraver Score.Staff.Voice.Lyrics
 
 \addEdition test
+\editionMod test 1 0/4 Voice \(
 \editionMod test 1 1/4 Lyrics #(make-music 'ExtenderEvent)
+\editionMod test 1 2/8 Voice [
+\editionMod test 1 3/8 Voice ]
+\editionMod test 1 6/8 Voice (
+\editionMod test 1 7/8 Voice )
+\editionMod test 1 7/8 Voice \)
+\editionMod test 2 0/4 Voice \p
+\editionMod test 2 0/4 Voice \<
 \editionMod test 2 1/4 Lyrics #(make-music 'HyphenEvent)
+% due to the melisma mechanics, we have to set the properties one step later
+\editionMod test 2 3/8 Voice \melisma
+\editionMod test 2 4/8 Voice \melismaEnd
+\editionMod test 3 0/8 Voice \!
 
 \relative {
-  c''4 a8\melisma bes8\melismaEnd c4 d | c a8\melisma b\melismaEnd c4 c
+  \autoBeamOff
+  c''4 a8 bes8 c4 d8 cis | c4 a8 b c4 c
 } \addlyrics { Say what you think, say what you need. }
 

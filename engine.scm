@@ -358,6 +358,16 @@
          (set! collected-mods `(,@collected-mods ,m))
          #t
          )
+        ; Beam, Slur, Tie
+        ((memq (ly:music-property m 'name) '(BeamEvent SlurEvent PhrasingSlurEvent TieEvent))
+         (set! collected-mods `(,@collected-mods ,m))
+         #t
+         )
+        ; Dynamics
+        ((memq (ly:music-property m 'name) '(AbsoluteDynamicEvent CrescendoEvent DecrescendoEvent))
+         (set! collected-mods `(,@collected-mods ,m))
+         #t
+         )
 
         (else #f) ; go ahead ...
         )) music)
@@ -445,6 +455,12 @@
         (if (list? current-mods) current-mods '())
         ))
 
+    (define (broadcast-music mod clsevent)
+      (ly:broadcast (ly:context-event-source context)
+        (ly:make-stream-event
+         (ly:make-event-class clsevent)
+         (ly:music-mutable-properties mod))
+        ))
     ; define start-translation-timestep to use it in initialize if needed
     (define (start-translation-timestep trans)
       (log-slot "start-translation-timestep")
@@ -470,23 +486,28 @@
                )
               ((apply-context? mod) (do-apply context mod))
               ((and (ly:music? mod)(eq? 'KeyChangeEvent (ly:music-property mod 'name)))
-               (ly:broadcast (ly:context-event-source context)
-                 (ly:make-stream-event
-                  (ly:make-event-class 'key-change-event)
-                  (ly:music-mutable-properties mod)))
-               )
+               (broadcast-music mod 'key-change-event))
               ((and (ly:music? mod)(eq? 'ExtenderEvent (ly:music-property mod 'name)))
-               (ly:broadcast (ly:context-event-source context)
-                 (ly:make-stream-event
-                  (ly:make-event-class 'extender-event)
-                  (ly:music-mutable-properties mod)))
-               )
+               (broadcast-music mod 'extender-event))
               ((and (ly:music? mod)(eq? 'HyphenEvent (ly:music-property mod 'name)))
-               (ly:broadcast (ly:context-event-source context)
-                 (ly:make-stream-event
-                  (ly:make-event-class 'hyphen-event)
-                  (ly:music-mutable-properties mod)))
-               )
+               (broadcast-music mod 'hyphen-event))
+              ((and (ly:music? mod)(eq? 'BeamEvent (ly:music-property mod 'name)))
+               (broadcast-music mod 'beam-event))
+              ((and (ly:music? mod)(eq? 'SlurEvent (ly:music-property mod 'name)))
+               (broadcast-music mod 'slur-event))
+              ((and (ly:music? mod)(eq? 'SlurEvent (ly:music-property mod 'name)))
+               (broadcast-music mod 'slur-event))
+              ((and (ly:music? mod)(eq? 'PhrasingSlurEvent (ly:music-property mod 'name)))
+               (broadcast-music mod 'phrasing-slur-event))
+              ((and (ly:music? mod)(eq? 'TieEvent (ly:music-property mod 'name)))
+               (broadcast-music mod 'tie-event))
+              ((and (ly:music? mod)(eq? 'AbsoluteDynamicEvent (ly:music-property mod 'name)))
+               (broadcast-music mod 'absolute-dynamic-event))
+              ((and (ly:music? mod)(eq? 'CrescendoEvent (ly:music-property mod 'name)))
+               (broadcast-music mod 'crescendo-event))
+              ((and (ly:music? mod)(eq? 'DecrescendoEvent (ly:music-property mod 'name)))
+               (broadcast-music mod 'decrescendo-event))
+              ;(AbsoluteDynamicEvent CrescendoEvent DecrescendoEvent)
               ((ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
               )
              ) (find-mods)))
