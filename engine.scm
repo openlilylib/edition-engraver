@@ -267,6 +267,20 @@
   (define-scheme-function ()()
     (get-edition-list)))
 
+(define music-event-map
+  '(
+     (KeyChangeEvent . key-change-event)
+     (ExtenderEvent . extender-event)
+     (HyphenEvent . hyphen-event)
+     (BeamEvent . beam-event)
+     (SlurEvent . slur-event)
+     (PhrasingSlurEvent . phrasing-slur-event)
+     (TieEvent . tie-event)
+     (AbsoluteDynamicEvent . absolute-dynamic-event)
+     (CrescendoEvent . crescendo-event)
+     (DecrescendoEvent . decrescendo-event)
+     ))
+
 ; collect mods, accepted by the engraver, from a music expression
 ; TODO should mods be separated by engraver-slot? (e.g. start-timestep - process-music - acknowledger - listener)
 (define (collect-mods music context)
@@ -365,6 +379,12 @@
          )
         ; Dynamics
         ((memq (ly:music-property m 'name) '(AbsoluteDynamicEvent CrescendoEvent DecrescendoEvent))
+         (set! collected-mods `(,@collected-mods ,m))
+         #t
+         )
+
+        ; any other ... THIS IS A TEST!
+        ((memq (ly:music-property m 'name) (map car music-descriptions))
          (set! collected-mods `(,@collected-mods ,m))
          #t
          )
@@ -468,49 +488,40 @@
               (ly:moment<? start-translation-timestep-moment (ly:context-now context)))
           (for-each
            (lambda (mod)
-             (cond
-              ((override? mod)
-               (if (is-revert mod)
-                   (do-revert context mod)
-                   (do-override context mod))
-               ; if it is once, add to once-list
-               (if (is-once mod) (set! once-mods (cons mod once-mods)))
-               )
-              ((propset? mod)
-               (do-propset context mod)
-               (if (is-once mod) (set! once-mods (cons mod once-mods)))
-               )
-              ((propunset? mod)
-               (do-propunset context mod)
-               (if (is-once mod) (set! once-mods (cons mod once-mods)))
-               )
-              ((apply-context? mod) (do-apply context mod))
-              ((and (ly:music? mod)(eq? 'KeyChangeEvent (ly:music-property mod 'name)))
-               (broadcast-music mod 'key-change-event))
-              ((and (ly:music? mod)(eq? 'ExtenderEvent (ly:music-property mod 'name)))
-               (broadcast-music mod 'extender-event))
-              ((and (ly:music? mod)(eq? 'HyphenEvent (ly:music-property mod 'name)))
-               (broadcast-music mod 'hyphen-event))
-              ((and (ly:music? mod)(eq? 'BeamEvent (ly:music-property mod 'name)))
-               (broadcast-music mod 'beam-event))
-              ((and (ly:music? mod)(eq? 'SlurEvent (ly:music-property mod 'name)))
-               (broadcast-music mod 'slur-event))
-              ((and (ly:music? mod)(eq? 'SlurEvent (ly:music-property mod 'name)))
-               (broadcast-music mod 'slur-event))
-              ((and (ly:music? mod)(eq? 'PhrasingSlurEvent (ly:music-property mod 'name)))
-               (broadcast-music mod 'phrasing-slur-event))
-              ((and (ly:music? mod)(eq? 'TieEvent (ly:music-property mod 'name)))
-               (broadcast-music mod 'tie-event))
-              ((and (ly:music? mod)(eq? 'AbsoluteDynamicEvent (ly:music-property mod 'name)))
-               (broadcast-music mod 'absolute-dynamic-event))
-              ((and (ly:music? mod)(eq? 'CrescendoEvent (ly:music-property mod 'name)))
-               (broadcast-music mod 'crescendo-event))
-              ((and (ly:music? mod)(eq? 'DecrescendoEvent (ly:music-property mod 'name)))
-               (broadcast-music mod 'decrescendo-event))
-              ;(AbsoluteDynamicEvent CrescendoEvent DecrescendoEvent)
-              ((ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
-              )
-             ) (find-mods)))
+             (let ((mod-name (if (ly:music? mod) (ly:music-property mod 'name))))
+               (cond
+                ((override? mod)
+                 (if (is-revert mod)
+                     (do-revert context mod)
+                     (do-override context mod))
+                 ; if it is once, add to once-list
+                 (if (is-once mod) (set! once-mods (cons mod once-mods)))
+                 )
+                ((propset? mod)
+                 (do-propset context mod)
+                 (if (is-once mod) (set! once-mods (cons mod once-mods)))
+                 )
+                ((propunset? mod)
+                 (do-propunset context mod)
+                 (if (is-once mod) (set! once-mods (cons mod once-mods)))
+                 )
+                
+                ((apply-context? mod) (do-apply context mod))
+                ((and (ly:music? mod)(eq? 'CrescendoEvent (ly:music-property mod 'name)))
+                 (broadcast-music mod 'crescendo-event))
+                ((and (ly:music? mod)(eq? 'DecrescendoEvent (ly:music-property mod 'name)))
+                 (broadcast-music mod 'decrescendo-event))
+                
+                ((and (ly:music? mod)(memq (ly:music-property mod 'name) (map car music-descriptions)))
+                 ;(ly:message "trying ~A" (ly:music-property mod 'name))
+                 (ly:broadcast (ly:context-event-source context)
+                   (ly:make-stream-event
+                    (ly:assoc-get 'types (ly:assoc-get (ly:music-property mod 'name) music-descriptions '()) '())
+                    (ly:music-mutable-properties mod)))
+                 )
+                
+                ((ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
+                ))) (find-mods)))
       (set! start-translation-timestep-moment #f)
       )
 
