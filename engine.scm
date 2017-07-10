@@ -267,20 +267,6 @@
   (define-scheme-function ()()
     (get-edition-list)))
 
-(define music-event-map
-  '(
-     (KeyChangeEvent . key-change-event)
-     (ExtenderEvent . extender-event)
-     (HyphenEvent . hyphen-event)
-     (BeamEvent . beam-event)
-     (SlurEvent . slur-event)
-     (PhrasingSlurEvent . phrasing-slur-event)
-     (TieEvent . tie-event)
-     (AbsoluteDynamicEvent . absolute-dynamic-event)
-     (CrescendoEvent . crescendo-event)
-     (DecrescendoEvent . decrescendo-event)
-     ))
-
 ; collect mods, accepted by the engraver, from a music expression
 ; TODO should mods be separated by engraver-slot? (e.g. start-timestep - process-music - acknowledger - listener)
 (define (collect-mods music context)
@@ -384,7 +370,11 @@
          )
 
         ; any other ... THIS IS A TEST!
-        ((memq (ly:music-property m 'name) (map car music-descriptions))
+        ((memq (ly:music-property m 'name)
+           (filter
+            (lambda (e)
+              (not (memq e '(SequentialMusic SimultaneousMusic))))
+            (map car music-descriptions)))
          (set! collected-mods `(,@collected-mods ,m))
          #t
          )
@@ -505,21 +495,21 @@
                  (do-propunset context mod)
                  (if (is-once mod) (set! once-mods (cons mod once-mods)))
                  )
-                
+
                 ((apply-context? mod) (do-apply context mod))
-                ((and (ly:music? mod)(eq? 'CrescendoEvent (ly:music-property mod 'name)))
+                ((and (ly:music? mod)(eq? 'CrescendoEvent mod-name))
                  (broadcast-music mod 'crescendo-event))
-                ((and (ly:music? mod)(eq? 'DecrescendoEvent (ly:music-property mod 'name)))
+                ((and (ly:music? mod)(eq? 'DecrescendoEvent mod-name))
                  (broadcast-music mod 'decrescendo-event))
-                
-                ((and (ly:music? mod)(memq (ly:music-property mod 'name) (map car music-descriptions)))
-                 ;(ly:message "trying ~A" (ly:music-property mod 'name))
+
+                ((and (ly:music? mod)(memq mod-name (map car music-descriptions)))
+                 (ly:message "trying ~A ~A" mod-name (ly:music-mutable-properties mod))
                  (ly:broadcast (ly:context-event-source context)
                    (ly:make-stream-event
-                    (ly:assoc-get 'types (ly:assoc-get (ly:music-property mod 'name) music-descriptions '()) '())
+                    (ly:assoc-get 'types (ly:assoc-get mod-name music-descriptions '()) '())
                     (ly:music-mutable-properties mod)))
                  )
-                
+
                 ((ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
                 ))) (find-mods)))
       (set! start-translation-timestep-moment #f)

@@ -50,8 +50,9 @@
 \editionMod test 1 6/8 Voice (
 \editionMod test 1 7/8 Voice )
 \editionMod test 1 7/8 Voice \)
-\editionMod test 2 0/4 Score -"Hallo Welt"
-\editionMod test 2 0/4 Voice e''4 % articulations break the mod right now
+\editionMod test 2 0/4 Score \time 3/4
+\editionMod test 2 0/4 Score \tempo "Allegro" 4=135
+\editionMod test 2 0/4 Voice e''4 % articulations crash right now!
 \editionMod test 2 0/4 Voice \p
 \editionMod test 2 0/4 Voice \<
 \editionMod test 2 1/4 Lyrics #(make-music 'HyphenEvent)
