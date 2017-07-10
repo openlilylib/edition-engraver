@@ -290,8 +290,8 @@
     (for-some-music-with-elements-callback
      (lambda (m)
        (let ((music-name (ly:music-property m 'name)))
-         (if (ly:duration? (ly:music-property m 'duration))
-             (ly:music-warning music "Music unsuitable for edition mod"))
+         ;(if (ly:duration? (ly:music-property m 'duration))
+         ;    (ly:music-warning music "Music unsuitable for edition mod"))
          (cond
           ; specified context like in \set Timing.whichBar = "||"
           ((eq? 'ContextSpeccedMusic music-name)
@@ -381,6 +381,13 @@
           ((memq music-name '(AbsoluteDynamicEvent CrescendoEvent DecrescendoEvent))
            (set! collected-mods `(,@collected-mods ,m))
            #t)
+          ; TimeSignature
+          ((memq music-name '(TimeSignatureMusic))
+           ;(set! collected-mods `(,@collected-mods ,m))
+           (let ((callback (ly:music-property m 'elements-callback)))
+             (if (procedure? callback)
+                 (for-each (lambda (m) (collect-mods m context)) (callback m)))
+           #f))
 
           ; any other ... THIS IS A TEST!
           ((memq music-name
@@ -515,7 +522,7 @@
                  (broadcast-music mod 'decrescendo-event))
 
                 ((and (ly:music? mod)(memq mod-name (map car music-descriptions)))
-                 ;(ly:message "trying ~A ~A" mod-name (ly:music-mutable-properties mod))
+                 ;(ly:message "trying ~A" mod-name)
                  (ly:broadcast (ly:context-event-source context)
                    (ly:make-stream-event
                     (ly:assoc-get 'types (ly:assoc-get mod-name music-descriptions '()) '())
