@@ -50,7 +50,7 @@
 \editionMod test 1 6/8 Voice (
 \editionMod test 1 7/8 Voice )
 \editionMod test 1 7/8 Voice \)
-\editionMod test 2 0/4 Score \time 3/4
+\editionMod test 2 0/4 Staff \time 2/2
 \editionMod test 2 0/4 Score \tempo "Allegro" 4=135
 \editionMod test 2 0/4 Voice e''4 % articulations crash right now!
 \editionMod test 2 0/4 Voice \p

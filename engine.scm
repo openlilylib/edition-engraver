@@ -272,16 +272,16 @@
   which is used by TimeSignatureMusic, SequentialMusic, and a few others"
   (let loop ((music music))
     (if (not (stop? music))
-      (let ((callback (ly:music-property music 'elements-callback)))
-        (if (procedure? callback)
-          (for-each loop (callback music))
-          (begin
-            (let ((elt (ly:music-property music 'element)))
-              (if (ly:music? elt)
-                (loop elt)))
-            (for-each loop (ly:music-property music 'elements))
-            (for-each loop (ly:music-property music 'articulations))
-            ))))))
+        (let ((callback (ly:music-property music 'elements-callback)))
+          (if (procedure? callback)
+              (for-each loop (callback music))
+              (begin
+               (let ((elt (ly:music-property music 'element)))
+                 (if (ly:music? elt)
+                     (loop elt)))
+               (for-each loop (ly:music-property music 'elements))
+               (for-each loop (ly:music-property music 'articulations))
+               ))))))
 
 ; collect mods, accepted by the engraver, from a music expression
 ; TODO should mods be separated by engraver-slot? (e.g. start-timestep - process-music - acknowledger - listener)
@@ -289,116 +289,110 @@
   (let ((collected-mods '()))
     (for-some-music-with-elements-callback
      (lambda (m)
-       (if (ly:duration? (ly:music-property m 'duration))
-         (ly:music-warning music "Music unsuitable for edition mod"))
-       (cond
-        ; specified context like in \set Timing.whichBar = "||"
-        ((eq? 'ContextSpeccedMusic (ly:music-property m 'name))
-         (let* ((ct (ly:music-property m 'context-type))
-                (elm (ly:music-property m 'element)))
-           (if (eq? 'Bottom ct)
-               #f
-               (begin
-                (set! collected-mods (append collected-mods (collect-mods elm ct)))
-                #t)
-               )
-           ))
+       (let ((music-name (ly:music-property m 'name)))
+         (if (ly:duration? (ly:music-property m 'duration))
+             (ly:music-warning music "Music unsuitable for edition mod"))
+         (cond
+          ; specified context like in \set Timing.whichBar = "||"
+          ((eq? 'ContextSpeccedMusic music-name)
+           (let* ((ct (ly:music-property m 'context-type))
+                  (elm (ly:music-property m 'element)))
+             (if (eq? 'Bottom ct)
+                 #f
+                 (begin
+                  (set! collected-mods (append collected-mods (collect-mods elm ct)))
+                  #t)
+                 )
+             ))
 
-        ; \override Grob.property =
-        ((eq? 'OverrideProperty (ly:music-property m 'name))
-         (let* ((once (ly:music-property m 'once #f))
-                (grob (ly:music-property m 'symbol))
-                (prop (ly:music-property m 'grob-property))
-                (prop (if (symbol? prop)
-                          prop
-                          (car (ly:music-property m 'grob-property-path))))
-                (value (ly:music-property m 'grob-value))
-                (mod (make <override> #:once once #:grob grob #:prop prop #:value value #:context context)))
-           ; (ly:message "mod ~A" mod)
-           (set! collected-mods `(,@collected-mods ,mod)) ; alternative (cons mod collected-mods)
-           #t
-           ))
-        ; \revert ...
-        ((eq? 'RevertProperty (ly:music-property m 'name))
-         (let* ((grob (ly:music-property m 'symbol))
-                (prop (ly:music-property m 'grob-property))
-                (prop (if (symbol? prop)
-                          prop
-                          (car (ly:music-property m 'grob-property-path))))
-                (mod (make <override> #:once #f #:revert #t #:grob grob #:prop prop #:value #f #:context context)))
-           (set! collected-mods `(,@collected-mods ,mod))
-           #t
-           ))
-        ; \set property = ...
-        ((eq? 'PropertySet (ly:music-property m 'name))
-         (let* ((once (ly:music-property m 'once #f))
-                (symbol (ly:music-property m 'symbol))
-                (value (ly:music-property m 'value))
-                (mod (make <propset> #:once once #:symbol symbol #:value value #:context context)))
-           (set! collected-mods `(,@collected-mods ,mod))
-           #t
-           ))
+          ; \override Grob.property =
+          ((eq? 'OverrideProperty music-name)
+           (let* ((once (ly:music-property m 'once #f))
+                  (grob (ly:music-property m 'symbol))
+                  (prop (ly:music-property m 'grob-property))
+                  (prop (if (symbol? prop)
+                            prop
+                            (car (ly:music-property m 'grob-property-path))))
+                  (value (ly:music-property m 'grob-value))
+                  (mod (make <override> #:once once #:grob grob #:prop prop #:value value #:context context)))
+             ; (ly:message "mod ~A" mod)
+             (set! collected-mods `(,@collected-mods ,mod)) ; alternative (cons mod collected-mods)
+             #t
+             ))
+          ; \revert ...
+          ((eq? 'RevertProperty music-name)
+           (let* ((grob (ly:music-property m 'symbol))
+                  (prop (ly:music-property m 'grob-property))
+                  (prop (if (symbol? prop)
+                            prop
+                            (car (ly:music-property m 'grob-property-path))))
+                  (mod (make <override> #:once #f #:revert #t #:grob grob #:prop prop #:value #f #:context context)))
+             (set! collected-mods `(,@collected-mods ,mod))
+             #t
+             ))
+          ; \set property = ...
+          ((eq? 'PropertySet music-name)
+           (let* ((once (ly:music-property m 'once #f))
+                  (symbol (ly:music-property m 'symbol))
+                  (value (ly:music-property m 'value))
+                  (mod (make <propset> #:once once #:symbol symbol #:value value #:context context)))
+             (set! collected-mods `(,@collected-mods ,mod))
+             #t
+             ))
 
-        ; \unset property = ...
-        ((eq? 'PropertyUnset (ly:music-property m 'name))
-         (let* ((once (ly:music-property m 'once #f))
-                (symbol (ly:music-property m 'symbol))
-                (mod (make <propunset> #:once once #:symbol symbol #:context context)))
-           (set! collected-mods `(,@collected-mods ,mod))
-           #t
-           ))
+          ; \unset property = ...
+          ((eq? 'PropertyUnset music-name)
+           (let* ((once (ly:music-property m 'once #f))
+                  (symbol (ly:music-property m 'symbol))
+                  (mod (make <propunset> #:once once #:symbol symbol #:context context)))
+             (set! collected-mods `(,@collected-mods ,mod))
+             #t
+             ))
 
-        ; \applyContext ...
-        ((eq? 'ApplyContext (ly:music-property m 'name))
-         (let* ((proc (ly:music-property m 'procedure))
-                (mod (make <apply-context> #:proc proc)))
-           (set! collected-mods `(,@collected-mods ,mod))
-           #t
-           ))
+          ; \applyContext ...
+          ((eq? 'ApplyContext music-name)
+           (let* ((proc (ly:music-property m 'procedure))
+                  (mod (make <apply-context> #:proc proc)))
+             (set! collected-mods `(,@collected-mods ,mod))
+             #t
+             ))
 
-        ; Breaks and applyOutput
-        ((memq (ly:music-property m 'name) '(LineBreakEvent PageBreakEvent PageTurnEvent ApplyOutputEvent))
-         (set! collected-mods `(,@collected-mods ,m))
-         #t
-         )
-        ; TextScript and Mark
-        ((memq (ly:music-property m 'name) '(TextScriptEvent MarkEvent))
-         (set! collected-mods `(,@collected-mods ,m))
-         #t
-         )
-        ; KeySignature, TempoChange
-        ((memq (ly:music-property m 'name) '(KeyChangeEvent TempoChangeEvent))
-         (set! collected-mods `(,@collected-mods ,m))
-         #t
-         )
-        ; Extender, Hyphen
-        ((memq (ly:music-property m 'name) '(HyphenEvent ExtenderEvent))
-         (set! collected-mods `(,@collected-mods ,m))
-         #t
-         )
-        ; Beam, Slur, Tie
-        ((memq (ly:music-property m 'name) '(BeamEvent SlurEvent PhrasingSlurEvent TieEvent))
-         (set! collected-mods `(,@collected-mods ,m))
-         #t
-         )
-        ; Dynamics
-        ((memq (ly:music-property m 'name) '(AbsoluteDynamicEvent CrescendoEvent DecrescendoEvent))
-         (set! collected-mods `(,@collected-mods ,m))
-         #t
-         )
+          ; Breaks and applyOutput
+          ((memq music-name '(LineBreakEvent PageBreakEvent PageTurnEvent ApplyOutputEvent))
+           (set! collected-mods `(,@collected-mods ,m))
+           #t)
+          ; TextScript and Mark
+          ((memq music-name '(TextScriptEvent MarkEvent))
+           (set! collected-mods `(,@collected-mods ,m))
+           #t)
+          ; KeySignature, TempoChange
+          ((memq music-name '(KeyChangeEvent TempoChangeEvent))
+           (set! collected-mods `(,@collected-mods ,m))
+           #t)
+          ; Extender, Hyphen
+          ((memq music-name '(HyphenEvent ExtenderEvent))
+           (set! collected-mods `(,@collected-mods ,m))
+           #t)
+          ; Beam, Slur, Tie
+          ((memq music-name '(BeamEvent SlurEvent PhrasingSlurEvent TieEvent))
+           (set! collected-mods `(,@collected-mods ,m))
+           #t)
+          ; Dynamics
+          ((memq music-name '(AbsoluteDynamicEvent CrescendoEvent DecrescendoEvent))
+           (set! collected-mods `(,@collected-mods ,m))
+           #t)
 
-        ; any other ... THIS IS A TEST!
-        ((memq (ly:music-property m 'name)
-           (filter
-            (lambda (e)
-              (not (memq e '(SequentialMusic SimultaneousMusic))))
-            (map car music-descriptions)))
-         (set! collected-mods `(,@collected-mods ,m))
-         #t
-         )
+          ; any other ... THIS IS A TEST!
+          ((memq music-name
+             (filter
+              (lambda (e)
+                (not (memq e '(SequentialMusic SimultaneousMusic))))
+              (map car music-descriptions)))
+           (set! collected-mods `(,@collected-mods ,m))
+           #t)
 
-        (else #f) ; go ahead ...
-        )) music)
+          (else #f) ; go ahead ...
+          ))) music)
     collected-mods))
 
 (define (create-mod-path edition-target measure moment context-edition-id)
