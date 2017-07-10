@@ -348,8 +348,8 @@
          (set! collected-mods `(,@collected-mods ,m))
          #t
          )
-        ; KeySignature
-        ((memq (ly:music-property m 'name) '(KeyChangeEvent))
+        ; KeySignature, TempoChange
+        ((memq (ly:music-property m 'name) '(KeyChangeEvent TempoChangeEvent))
          (set! collected-mods `(,@collected-mods ,m))
          #t
          )
@@ -473,6 +473,12 @@
                (ly:broadcast (ly:context-event-source context)
                  (ly:make-stream-event
                   (ly:make-event-class 'key-change-event)
+                  (ly:music-mutable-properties mod)))
+               )
+              ((and (ly:music? mod)(eq? 'TempoChangeEvent (ly:music-property mod 'name)))
+               (ly:broadcast (ly:context-event-source context)
+                 (ly:make-stream-event
+                  (ly:make-event-class 'tempo-change-event)
                   (ly:music-mutable-properties mod)))
                )
               ((and (ly:music? mod)(eq? 'ExtenderEvent (ly:music-property mod 'name)))
