@@ -363,7 +363,7 @@
            (let ((callback (ly:music-property m 'elements-callback)))
              (if (procedure? callback)
                  (for-each (lambda (m) (collect-mods m context)) (callback m)))
-           #f))
+             #f))
 
           ; any other ... THIS IS A TEST!
           ((memq music-name
@@ -497,7 +497,9 @@
                 ((and (ly:music? mod)(eq? 'DecrescendoEvent mod-name))
                  (broadcast-music mod 'decrescendo-event))
 
-                ((and (ly:music? mod)(memq mod-name (map car music-descriptions)))
+                ((and (ly:music? mod)
+                      (not (memq mod-name '(TextScriptEvent)))
+                      (memq mod-name (map car music-descriptions)))
                  ;(ly:message "trying ~A" mod-name)
                  (ly:broadcast (ly:context-event-source context)
                    (ly:make-stream-event
@@ -637,15 +639,19 @@
             (log-slot "process-music")
             (for-each ; revert/reset once override/set
               (lambda (mod)
-                (cond
-                 ((and (ly:music? mod) (eq? 'TextScriptEvent (ly:music-property mod 'name)))
-                  (let ((grob (ly:engraver-make-grob trans 'TextScript (ly:make-stream-event '(event) `((origin . ,(ly:music-property mod 'origin))) )))
-                        (text (ly:music-property mod 'text))
-                        (direction (ly:music-property mod 'direction #f)))
-                    (ly:grob-set-property! grob 'text text)
-                    (if direction (ly:grob-set-property! grob 'direction direction))
-                    ))
-                 ))
+                (let ((music-name (if (ly:music? mod) (ly:music-property mod 'name) #f)))
+                  (cond
+                   ((eq? 'TextScriptEvent music-name)
+                    (let ((grob (ly:engraver-make-grob trans 'TextScript
+                                  (ly:make-stream-event '(event)
+                                    `((origin . ,(ly:music-property mod 'origin))
+                                      (tweaks . ,(ly:music-property mod 'tweaks))))))
+                          (direction (ly:music-property mod 'direction #f))
+                          (text (ly:music-property mod 'text #f)))
+                      (ly:grob-set-property! grob 'text text)
+                      (if direction (ly:grob-set-property! grob 'direction direction))
+                      ))
+                   )))
               (find-mods))
             ))
        ; finalize engraver
