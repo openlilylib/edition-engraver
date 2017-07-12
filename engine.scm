@@ -645,7 +645,8 @@
                     (let ((grob (ly:engraver-make-grob trans 'TextScript
                                   (ly:make-stream-event '(event)
                                     `((origin . ,(ly:music-property mod 'origin))
-                                      (tweaks . ,(ly:music-property mod 'tweaks))))))
+                                      (tweaks . ,(ly:music-property mod 'tweaks))
+                                      (music-cause . mod)))))
                           (direction (ly:music-property mod 'direction #f))
                           (text (ly:music-property mod 'text #f)))
                       (ly:grob-set-property! grob 'text text)
