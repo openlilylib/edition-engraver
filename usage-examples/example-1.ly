@@ -30,7 +30,9 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \version "2.19.37"
-\include "edition-engraver.ily"
+
+\include "oll-core/package.ily"
+\loadPackage edition-engraver
 
 \addEdition test
 
@@ -63,6 +65,12 @@
 \editionMod test 9 0/4 sing.with.bach.along.Staff \mark \default
 \editionMod test 10 0/4 sing.with.bach.along.Staff \mark \default
 
+
+\editionMod test 10 0/4 sing.with.bach.along.Voice.B {
+  \once \override NoteHead.extra-offset = #'(2 . -1)
+  \once \override NoteHead.color = #green
+}
+
 % "Install" the edition-engraver in a number of contexts.
 % The order is not relevant,
 % Dynamics is not used in this example, Foo triggers an oll:warn
@@ -85,7 +93,7 @@
 } {
   R1
   <<
-    \repeat unfold 10 \relative c'' { bes4 a c b } \\
+    \repeat unfold 10 \relative c'' { bes4 ( a c b ) } \\
     \repeat unfold 10 \relative c' { d4. e4 f8 g4 }
   >>
   <<

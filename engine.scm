@@ -38,7 +38,7 @@
  (lily)
  (oop goops)
  (srfi srfi-1)
- (oll-core scheme tree)
+ (oll-core tree)
  )
 
 (ly:message "initializing edition-engraver ...")
