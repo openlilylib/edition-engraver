@@ -357,30 +357,6 @@
              #t
              ))
 
-          ; Breaks and applyOutput
-          ((memq music-name '(LineBreakEvent PageBreakEvent PageTurnEvent ApplyOutputEvent))
-           (set! collected-mods `(,@collected-mods ,m))
-           #t)
-          ; TextScript and Mark
-          ((memq music-name '(TextScriptEvent MarkEvent))
-           (set! collected-mods `(,@collected-mods ,m))
-           #t)
-          ; KeySignature, TempoChange
-          ((memq music-name '(KeyChangeEvent TempoChangeEvent))
-           (set! collected-mods `(,@collected-mods ,m))
-           #t)
-          ; Extender, Hyphen
-          ((memq music-name '(HyphenEvent ExtenderEvent))
-           (set! collected-mods `(,@collected-mods ,m))
-           #t)
-          ; Beam, Slur, Tie
-          ((memq music-name '(BeamEvent SlurEvent PhrasingSlurEvent TieEvent))
-           (set! collected-mods `(,@collected-mods ,m))
-           #t)
-          ; Dynamics
-          ((memq music-name '(AbsoluteDynamicEvent CrescendoEvent DecrescendoEvent))
-           (set! collected-mods `(,@collected-mods ,m))
-           #t)
           ; TimeSignature
           ((memq music-name '(TimeSignatureMusic))
            ;(set! collected-mods `(,@collected-mods ,m))
