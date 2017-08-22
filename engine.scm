@@ -365,7 +365,7 @@
                  (for-each (lambda (m) (collect-mods m context)) (callback m)))
              #f))
 
-          ; any other ... THIS IS A TEST!
+          ; any other
           ((memq music-name
              (filter
               (lambda (e)
