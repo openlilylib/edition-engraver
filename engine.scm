@@ -449,13 +449,23 @@
     (define (log-slot slot) ; TODO: option verbose? oll logging function?
       (if (and (eq? (ly:context-property-where-defined context 'edition-engraver-log) context)
                (eq? #t (ly:context-property context 'edition-engraver-log #f)))
-          (ly:message "edition-engraver ~A ~A = \"~A\" : ~A @ ~A" context-edition-id context-name (if (symbol? context-id) (symbol->string context-id) "") slot (ly:context-current-moment context))))
+          (ly:message "edition-engraver ~A ~A = \"~A\" : ~A @ ~A (~A@~A)"
+            context-edition-id
+            context-name
+            (if (symbol? context-id) (symbol->string context-id) "")
+            slot
+            (ly:context-current-moment context)
+            (ly:context-property context 'currentBarNumber)
+            (ly:context-property context 'measurePosition)
+            )))
 
     ; find mods for the current time-spec
     (define (find-mods)
+      (log-slot "find-mods")
       (let* (;(moment (ly:context-current-moment context))
-              (measure (ly:context-property context 'currentBarNumber))
-              (measurePos (ly:context-property context 'measurePosition))
+              (timing (ly:context-find context 'Timing))
+              (measure (ly:context-property timing 'currentBarNumber))
+              (measurePos (ly:context-property timing 'measurePosition))
               (current-mods (tree-get context-mods (list measure measurePos))))
         (if (list? current-mods) current-mods '())
         ))
@@ -660,9 +670,10 @@
          ,(lambda (trans)
             ;(log-slot "finalize")
             (if (eq? 'Score context-name)
-                (let ((current-moment (ly:context-current-moment context))
-                      (current-measure (ly:context-property context 'currentBarNumber))
-                      (measure-position (ly:context-property context 'measurePosition)))
+                (let* ((timing (ly:context-find context 'Timing))
+                       (current-moment (ly:context-current-moment context))
+                       (current-measure (ly:context-property timing 'currentBarNumber))
+                       (measure-position (ly:context-property timing 'measurePosition)))
                   (ly:message "finalize ~A with ~A @ ~A / ~A-~A"
                     context-edition-id edition-targets current-moment current-measure measure-position)
                   ; TODO format <file>.edition.log
