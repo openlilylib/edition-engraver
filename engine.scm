@@ -526,6 +526,7 @@
     ;(ly:message "~A ~A" (ly:context-id context) context-id)
     `( ; TODO slots: listeners, acknowledgers, end-acknowledgers, process-acknowledged
 
+       (must-be-last . #t)
        ; initialize engraver with its own id
        (initialize .
          ,(lambda (trans)
