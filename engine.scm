@@ -614,7 +614,7 @@
                    ; start-translation-timestep is not called on upbeats!
                    (and (ly:moment? partial)(< (ly:moment-main partial) 0)))
                   (begin
-                   (ly:message "start-translation-timestep called in initialize")
+                   (log-slot "initialize->start-translation-timestep")
                    (start-translation-timestep trans)
                    ))
               (set! start-translation-timestep-moment now))
