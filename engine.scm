@@ -606,9 +606,17 @@
             (log-slot "initialize")
             ; if the now-moment is greater than 0, this is an instantly created context,
             ; so we need to call start-translation-timestep here.
-            (let ((now (ly:context-now context)))
-              (if (ly:moment<? (ly:make-moment 0/4) now)
-                  (start-translation-timestep trans))
+            (let ((now (ly:context-now context))
+                  (partial (ly:context-property context 'measurePosition)))
+              (if (or
+                   ; start-translation-timestep is not called for instant Voices
+                   (ly:moment<? (ly:make-moment 0/4) now)
+                   ; start-translation-timestep is not called on upbeats!
+                   (and (ly:moment? partial)(< (ly:moment-main partial) 0)))
+                  (begin
+                   (log-slot "initialize->start-translation-timestep")
+                   (start-translation-timestep trans)
+                   ))
               (set! start-translation-timestep-moment now))
             ))
 
