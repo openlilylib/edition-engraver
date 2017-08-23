@@ -6,8 +6,9 @@ name: edition-engraver
 display-name: edition-engraver
 short-description: Injecting tweaks into LilyPond scores
 description: <
-  The edition-engraver is a tool that ...
-  (Please complete)
+  The edition-engraver is a tool that allows to inject overrides, breaks and
+  other modifications into a score without bloating the source but cleanly
+  separating content and layout.
   >
 oll-core: 0.5.0
 maintainers: [
