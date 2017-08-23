@@ -30,7 +30,9 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \version "2.19.37"
-\include "edition-engraver.ily"
+
+\include "oll-core/package.ily"
+\loadPackage edition-engraver
 
 \paper {
   ragged-right = ##f

@@ -38,7 +38,7 @@
  (lily)
  (oop goops)
  (srfi srfi-1)
- (oll-core scheme tree)
+ (oll-core tree)
  )
 
 (ly:message "initializing edition-engraver ...")
@@ -267,12 +267,30 @@
   (define-scheme-function ()()
     (get-edition-list)))
 
+(define (for-some-music-with-elements-callback stop? music)
+  "Like @var{for-some-music}, but also processes @var{elements-callback},
+  which is used by TimeSignatureMusic, SequentialMusic, and a few others"
+  (let loop ((music music))
+    (if (not (stop? music))
+        (let ((callback (ly:music-property music 'elements-callback)))
+          (if (procedure? callback)
+              (for-each loop (callback music))
+              (begin
+               (let ((elt (ly:music-property music 'element)))
+                 (if (ly:music? elt)
+                     (loop elt)))
+               (for-each loop (ly:music-property music 'elements))
+               (for-each loop (ly:music-property music 'articulations))
+               ))))))
+
 ; collect mods, accepted by the engraver, from a music expression
 ; TODO should mods be separated by engraver-slot? (e.g. start-timestep - process-music - acknowledger - listener)
 (define (collect-mods music context)
   (let ((collected-mods '()))
-    (for-some-music
+    (for-some-music-with-elements-callback
      (lambda (m)
+       (if (ly:duration? (ly:music-property m 'duration))
+           (ly:music-warning music "Music unsuitable for edition mod"))
        (cond
         ; specified context like in \set Timing.whichBar = "||"
         ((eq? 'ContextSpeccedMusic (ly:music-property m 'name))
@@ -348,8 +366,8 @@
          (set! collected-mods `(,@collected-mods ,m))
          #t
          )
-        ; KeySignature
-        ((memq (ly:music-property m 'name) '(KeyChangeEvent))
+        ; KeySignature, TempoChange
+        ((memq (ly:music-property m 'name) '(KeyChangeEvent TempoChangeEvent))
          (set! collected-mods `(,@collected-mods ,m))
          #t
          )
@@ -434,13 +452,23 @@
     (define (log-slot slot) ; TODO: option verbose? oll logging function?
       (if (and (eq? (ly:context-property-where-defined context 'edition-engraver-log) context)
                (eq? #t (ly:context-property context 'edition-engraver-log #f)))
-          (ly:message "edition-engraver ~A ~A = \"~A\" : ~A @ ~A" context-edition-id context-name (if (symbol? context-id) (symbol->string context-id) "") slot (ly:context-current-moment context))))
+          (ly:message "edition-engraver ~A ~A = \"~A\" : ~A @ ~A (~A@~A)"
+            context-edition-id
+            context-name
+            (if (symbol? context-id) (symbol->string context-id) "")
+            slot
+            (ly:context-current-moment context)
+            (ly:context-property context 'currentBarNumber)
+            (ly:context-property context 'measurePosition)
+            )))
 
     ; find mods for the current time-spec
     (define (find-mods)
+      (log-slot "find-mods")
       (let* (;(moment (ly:context-current-moment context))
-              (measure (ly:context-property context 'currentBarNumber))
-              (measurePos (ly:context-property context 'measurePosition))
+              (timing (ly:context-find context 'Timing))
+              (measure (ly:context-property timing 'currentBarNumber))
+              (measurePos (ly:context-property timing 'measurePosition))
               (current-mods (tree-get context-mods (list measure measurePos))))
         (if (list? current-mods) current-mods '())
         ))
@@ -475,6 +503,12 @@
                   (ly:make-event-class 'key-change-event)
                   (ly:music-mutable-properties mod)))
                )
+              ((and (ly:music? mod)(eq? 'TempoChangeEvent (ly:music-property mod 'name)))
+               (ly:broadcast (ly:context-event-source context)
+                 (ly:make-stream-event
+                  (ly:make-event-class 'tempo-change-event)
+                  (ly:music-mutable-properties mod)))
+               )
               ((and (ly:music? mod)(eq? 'ExtenderEvent (ly:music-property mod 'name)))
                (ly:broadcast (ly:context-event-source context)
                  (ly:make-stream-event
@@ -497,6 +531,7 @@
     ;(ly:message "~A ~A" (ly:context-id context) context-id)
     `( ; TODO slots: listeners, acknowledgers, end-acknowledgers, process-acknowledged
 
+       (must-be-last . #t)
        ; initialize engraver with its own id
        (initialize .
          ,(lambda (trans)
@@ -649,9 +684,10 @@
          ,(lambda (trans)
             ;(log-slot "finalize")
             (if (eq? 'Score context-name)
-                (let ((current-moment (ly:context-current-moment context))
-                      (current-measure (ly:context-property context 'currentBarNumber))
-                      (measure-position (ly:context-property context 'measurePosition)))
+                (let* ((timing (ly:context-find context 'Timing))
+                       (current-moment (ly:context-current-moment context))
+                       (current-measure (ly:context-property timing 'currentBarNumber))
+                       (measure-position (ly:context-property timing 'measurePosition)))
                   (ly:message "finalize ~A with ~A @ ~A / ~A-~A"
                     context-edition-id edition-targets current-moment current-measure measure-position)
                   ; TODO format <file>.edition.log
