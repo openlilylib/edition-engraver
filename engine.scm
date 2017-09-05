@@ -33,7 +33,6 @@
 (define-module (edition-engraver engine))
 
 ; use tree structure - but not alist-based!
-; TODO: tree.scm should be placed in another more generic module (oll-core?)
 (use-modules
  (lily)
  (oop goops)
