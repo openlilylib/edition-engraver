@@ -465,7 +465,26 @@
               (timing (ly:context-find context 'Timing))
               (measure (ly:context-property timing 'currentBarNumber))
               (measurePos (ly:context-property timing 'measurePosition))
-              (current-mods (tree-get context-mods (list measure measurePos))))
+              (current-mods (tree-get context-mods (list measure measurePos)))
+              (measure-length (ly:context-property timing 'measureLength))
+              (positions (tree-get-keys context-mods (list measure))))
+
+        (if (list? positions)
+            (for-each
+             (lambda (pos)
+               (ly:message "move to next bar: ~A (~A)" pos measure-length)
+               ; TODO this won't work with polymetric scores!
+               ; TODO remove moved mods!
+               (let ((omeasure (1+ measure))
+                     (opos (ly:moment-sub measurePos measure-length))
+                     (omods (tree-get-tree context-mods (list measure pos))))
+                 (ly:message "move mods ~A ~A ~A" omeasure opos omods)
+                 ))
+             (filter
+              (lambda (pos)
+                (and (ly:moment? pos) (or (equal? pos measure-length)(ly:moment<? measure-length pos))))
+              positions)))
+
         (if (list? current-mods) current-mods '())
         ))
 
