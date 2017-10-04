@@ -470,6 +470,8 @@
              (measure-length (ly:context-property timing 'measureLength))
              (positions (tree-get-keys context-mods (list measure))))
 
+        ; propagate mods into the next measure, if the moment exceeds measure-length
+        ; TODO this works as long there are no cadenza parts!
         (if (and (list? positions) ; do we have any mods in this measure?
                  (or (not (integer? track-mod-move)) ; do it once per measure
                      (not (= track-mod-move measure))
