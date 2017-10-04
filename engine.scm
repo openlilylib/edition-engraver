@@ -67,9 +67,9 @@
 
 ; create dynamic-tree
 (define-public (tree-create-dynamic . key)
-   (let ((k (if (> (length key) 0)(car key) 'node)))
-     (make <dynamic-tree> #:key k)
-     ))
+  (let ((k (if (> (length key) 0)(car key) 'node)))
+    (make <dynamic-tree> #:key k)
+    ))
 
 ; adapted version of tree-set! to take care of procedures inside the path
 (define-method (tree-set! (create <boolean>) (tree <dynamic-tree>) (path <list>) val)
@@ -112,72 +112,72 @@ Path: ~a" path)))))
 
 ; adapted version of tree-get-tree to take care of procedures inside path and/or tree
 (define-method (tree-get-tree (tree <dynamic-tree>) (path <list>))
-   (if (= (length path) 0)
-       tree
-       (let* ((ckey (car path))
-              (cpath (cdr path))
-              (child (hash-ref (children tree) ckey)))
-         (if (is-a? child <tree>)
-             (tree-get-tree child cpath)
-             (let* ((childs (hash-map->list cons (children tree) ))
-                    (childs (map (lambda (p) (cons (car p) (cdr p))) childs))
-                    (match #f))
-               ;(ly:message "~A" childs)
-               (for-each
-                (lambda (pat)
-                  (if (and (eq? #f match) (procedure? (car pat)) ((car pat) ckey))
-                      (set! match (cons ckey (tree-get-tree (cdr pat) cpath)))
-                      )) childs)
-               (if (pair? match) (cdr match) #f)
-               ))
-         )))
+  (if (= (length path) 0)
+      tree
+      (let* ((ckey (car path))
+             (cpath (cdr path))
+             (child (hash-ref (children tree) ckey)))
+        (if (is-a? child <tree>)
+            (tree-get-tree child cpath)
+            (let* ((childs (hash-map->list cons (children tree) ))
+                   (childs (map (lambda (p) (cons (car p) (cdr p))) childs))
+                   (match #f))
+              ;(ly:message "~A" childs)
+              (for-each
+               (lambda (pat)
+                 (if (and (eq? #f match) (procedure? (car pat)) ((car pat) ckey))
+                     (set! match (cons ckey (tree-get-tree (cdr pat) cpath)))
+                     )) childs)
+              (if (pair? match) (cdr match) #f)
+              ))
+        )))
 
 ; adapted version of tree-get-tree to take care of procedures inside path or tree
 (define-method (display (tree <dynamic-tree>) port)
-   (let ((tkey (get-key tree)))
-     (tree-display tree
-       `(port . ,port)
-       `(pformat . ,(lambda (v)
-                      (cond
-                       ((procedure? v)
-                        (let ((pn (procedure-name v))
-                              (label (object-property v 'path-label)))
-                          (if label label (format "<~A>" pn))))
-                       (else (format "~A" v))
-                       )))
-       )))
+  (let ((tkey (get-key tree)))
+    (tree-display tree
+      `(port . ,port)
+      `(pformat . ,(lambda (v)
+                     (cond
+                      ((procedure? v)
+                       (let ((pn (procedure-name v))
+                             (label (object-property v 'path-label)))
+                         (if label label (format "<~A>" pn))))
+                      (else (format "~A" v))
+                      )))
+      )))
 
 ; get all children with procedure inside path
 (define-method (tree-get-all-trees (tree <tree>) (path <list>))
-   (if (= (length path) 0)
-       (list tree)
-       (let* ((ckey (car path))
-              (cpath (cdr path))
-              (childs (hash-map->list cons (children tree) ))
-              (child (hash-ref (children tree) ckey)))
+  (if (= (length path) 0)
+      (list tree)
+      (let* ((ckey (car path))
+             (cpath (cdr path))
+             (childs (hash-map->list cons (children tree) ))
+             (child (hash-ref (children tree) ckey)))
 
-         (set! childs (map (lambda (p) (cons (car p) (cdr p))) childs))
-         (set! childs
-               (cond
-                ((procedure? ckey)
-                 (filter (lambda (child) (ckey (car child))) childs))
-                ((is-a? child <tree>)
-                 (list (cons ckey child)))
-                (else
-                 (map cdr
-                   (filter
-                    (lambda (p)
-                      #t) childs))
-                 )))
-         (concatenate
-          (map
-           (lambda (child)
-             (tree-get-all-trees (cdr child) (cdr path)))
-           childs))
-         )))
+        (set! childs (map (lambda (p) (cons (car p) (cdr p))) childs))
+        (set! childs
+              (cond
+               ((procedure? ckey)
+                (filter (lambda (child) (ckey (car child))) childs))
+               ((is-a? child <tree>)
+                (list (cons ckey child)))
+               (else
+                (map cdr
+                  (filter
+                   (lambda (p)
+                     #t) childs))
+                )))
+        (concatenate
+         (map
+          (lambda (child)
+            (tree-get-all-trees (cdr child) (cdr path)))
+          childs))
+        )))
 ; get all children with procedure inside path
 (define-method (tree-get-all (tree <tree>) (path <list>))
-   (map value (tree-get-all-trees tree path)))
+  (map value (tree-get-all-trees tree path)))
 ;;; END dynamic-tree
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -524,8 +524,19 @@ Path: ~a" path)))))
   (let* ((mod-path (create-mod-path edition-target measure moment context-edition-id))
          (tmods (tree-get mod-tree mod-path))
          (tmods (if (list? tmods) tmods '())))
+    ; fetch procedures from path
+    ; TODO build procedures from wildcard string
+    (define (explode-mod-path mod-path)
+      (if (and
+           (symbol? mod-path)
+           (eq? #\* (last (string->list (symbol->string mod-path)))))
+          (let* ((proc-name (symbol->string mod-path))
+                 (proc-name (string->symbol (substring proc-name 0 (1- (string-length proc-name)))))
+                 (proc (ly:parser-lookup proc-name)))
+            (if (procedure? proc) proc mod-path))
+          mod-path))
     ; (ly:message "mods ~A" mods)
-    (tree-set! mod-tree mod-path (append tmods mods))
+    (tree-set! mod-tree (map explode-mod-path mod-path) (append tmods mods))
     ))
 ; predicate for music or context-mod
 (define-public (music-or-context-mod? v) (or (ly:music? v)(ly:context-mod? v)))

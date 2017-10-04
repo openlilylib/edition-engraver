@@ -36,21 +36,21 @@
 
 \consistToContexts #edition-engraver Score.Staff.Voice.Lyrics
 
-% TODO build wildcard procedures and path lists
+% TODO build wildcard procedures
 #(define (my-wild-card v) (eq? #\l (string-ref (format "~A" v) 0)))
 
-\addEdition test
-\editionMod test 1 1/4 #(list my-wild-card 'Voice) \once \override NoteHead.color = #green
+\addEdition test % path-elements ending with '*' denote a procedure
+\editionMod test 1 5/4 "my-wild-card*".Voice \once \override NoteHead.color = #green
 
 <<
   \new Staff \with {
     \editionID la
-  } \relative { c''4 b bes a }
+  } \repeat unfold 3 \relative { c''4 b bes a }
   \new Staff \with {
     \editionID le
-  } \relative { c''4 b bes a }
+  } \repeat unfold 3 \relative { c''4 b bes a }
   \new Staff \with {
     \editionID fu
-  } \relative { c''4 b bes a }
+  } \repeat unfold 3 \relative { c''4 b bes a }
 >>
 
