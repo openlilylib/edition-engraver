@@ -43,7 +43,8 @@
 \addEdition test
 \editionMod test 1 #(ly:make-moment -1/4) Staff \once \override NoteHead.color = #red
 \editionMod test 1 4/4 Staff \once \override NoteHead.color = #red
+\editionMod test 2 0/4 Staff \once \override Stem.color = #green
 
 \relative {
-  \partial 4 c'' | b bes b c | d
+  \partial 4 c'' | b bes b c | d e fis c |
 }
