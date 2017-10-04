@@ -442,6 +442,7 @@
          (context-mods #f)
          (once-mods '())
          (start-translation-timestep-moment #f)
+         (track-mod-move #f)
          )
 
     ; log slot calls
@@ -469,30 +470,35 @@
              (measure-length (ly:context-property timing 'measureLength))
              (positions (tree-get-keys context-mods (list measure))))
 
-        (if (list? positions)
-            (for-each
-             (lambda (pos)
-               (let ((omeasure (1+ measure))
-                     (opos (ly:moment-sub pos measure-length))
-                     (omods (tree-get-tree context-mods (list measure pos))))
-                 (tree-walk omods (list measure pos)
-                   (lambda (path nkey value)
-                     (let* ((ospot (list omeasure opos))
-                            (omods (tree-get context-mods ospot)))
-                       ; TODO format message
-                       (ly:message "~A (~A): ~A ---> ~A" context-edition-id context-name path ospot)
-                       (if (not (list? omods)) (set! omods '()))
-                       (tree-set! context-mods ospot (append omods value))
-                       (tree-unset! context-mods path)
-                       )))
-                 ))
-             (filter
+        (if (and (list? positions) ; do we have any mods in this measure?
+                 (or (not (integer? track-mod-move)) ; do it once per measure
+                     (not (= track-mod-move measure))
+                     ))
+            (begin
+             (for-each
               (lambda (pos)
-                (and (ly:moment? pos)
-                     (or (equal? pos measure-length)
-                         (ly:moment<? measure-length pos))))
-              positions)
-             ))
+                (let ((omeasure (1+ measure))
+                      (opos (ly:moment-sub pos measure-length))
+                      (omods (tree-get-tree context-mods (list measure pos))))
+                  (tree-walk omods (list measure pos)
+                    (lambda (path nkey value)
+                      (let* ((ospot (list omeasure opos))
+                             (omods (tree-get context-mods ospot)))
+                        ; TODO format message
+                        (ly:message "~A (~A): ~A ---> ~A" context-edition-id context-name path ospot)
+                        (if (not (list? omods)) (set! omods '()))
+                        (tree-set! context-mods ospot (append omods value))
+                        (tree-unset! context-mods path)
+                        )))
+                  ))
+              (filter
+               (lambda (pos)
+                 (and (ly:moment? pos)
+                      (or (equal? pos measure-length)
+                          (ly:moment<? measure-length pos))))
+               positions)
+              ))
+            (set! track-mod-move measure))
 
         (if (list? current-mods) current-mods '())
         ))
