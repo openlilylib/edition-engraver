@@ -42,9 +42,144 @@
 
 (ly:message "initializing edition-engraver ...")
 
+; Here are some uses of '@@' which should be avoided!
+
+; 1. If the EE will be integrated into LilyPond proper this will be not necessary anymore
+
 ; add context properties descriptions (private lambda in module 'lily')
 ((@@ (lily) translator-property-description) 'edition-id list? "edition id (list)")
 ((@@ (lily) translator-property-description) 'edition-engraver-log boolean? "de/activate logging (boolean)")
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; 2. The dynamic-tree will be integrated into (oll-core tree) to avoid this discouraged use of '@@'
+;;; START dynamic-tree
+
+(define <tree> (@@ (oll-core tree) <tree>))
+(define children (@@ (oll-core tree) children))
+(define get-key (@@ (oll-core tree) key))
+(define value (@@ (oll-core tree) value))
+(define has-value! (@@ (oll-core tree) has-value!))
+(define set-value! (@@ (oll-core tree) set-value!))
+(define type (@@ (oll-core tree) type))
+
+; dynamic-tree class to allow for wildcard paths
+(define-class <dynamic-tree> (<tree>))
+
+; create dynamic-tree
+(define-public (tree-create-dynamic . key)
+   (let ((k (if (> (length key) 0)(car key) 'node)))
+     (make <dynamic-tree> #:key k)
+     ))
+
+; adapted version of tree-set! to take care of procedures inside the path
+(define-method (tree-set! (create <boolean>) (tree <dynamic-tree>) (path <list>) val)
+  (if (= (length path) 0)
+      ;; end of path reached: set value
+      (let ((pred? (type tree)))
+        (if pred?
+            ;; if tree has a type defined check value against it before setting
+            (if (pred? val)
+                (begin
+                 (set-value! tree val)
+                 (has-value! tree #t))
+                (begin
+                 (ly:input-warning (*location*)
+                   (format "TODO: Format warning about typecheck error in tree-set!
+Expected ~a, got ~a" (procedure-name pred?) val))
+                 (set! val #f)))
+            ;; if no typecheck is set simply set the value
+            (begin
+             (set-value! tree val)
+             (has-value! tree #t)
+             )))
+      ;; determine child
+      (let* ((ckey (car path))
+             (cpath (cdr path))
+             (child (hash-ref (children tree) ckey)))
+        (if (not (tree? child))
+            ;; create child node if option is set
+            (if create
+                (begin
+                 (set! child (make <dynamic-tree> #:key ckey))
+                 (hash-set! (children tree) ckey child))))
+        (if (tree? child)
+            ;; recursively walk path
+            (tree-set! create child cpath val)
+            (ly:input-warning (*location*)
+              (format "TODO: Format missing path warning in tree-set!
+Path: ~a" path)))))
+  val)
+
+; adapted version of tree-get-tree to take care of procedures inside path and/or tree
+(define-method (tree-get-tree (tree <dynamic-tree>) (path <list>))
+   (if (= (length path) 0)
+       tree
+       (let* ((ckey (car path))
+              (cpath (cdr path))
+              (child (hash-ref (children tree) ckey)))
+         (if (is-a? child <tree>)
+             (tree-get-tree child cpath)
+             (let* ((childs (hash-map->list cons (children tree) ))
+                    (childs (map (lambda (p) (cons (car p) (cdr p))) childs))
+                    (match #f))
+               ;(ly:message "~A" childs)
+               (for-each
+                (lambda (pat)
+                  (if (and (eq? #f match) (procedure? (car pat)) ((car pat) ckey))
+                      (set! match (cons ckey (tree-get-tree (cdr pat) cpath)))
+                      )) childs)
+               (if (pair? match) (cdr match) #f)
+               ))
+         )))
+
+; adapted version of tree-get-tree to take care of procedures inside path or tree
+(define-method (display (tree <dynamic-tree>) port)
+   (let ((tkey (get-key tree)))
+     (tree-display tree
+       `(port . ,port)
+       `(pformat . ,(lambda (v)
+                      (cond
+                       ((procedure? v)
+                        (let ((pn (procedure-name v))
+                              (label (object-property v 'path-label)))
+                          (if label label (format "<~A>" pn))))
+                       (else (format "~A" v))
+                       )))
+       )))
+
+; get all children with procedure inside path
+(define-method (tree-get-all-trees (tree <tree>) (path <list>))
+   (if (= (length path) 0)
+       (list tree)
+       (let* ((ckey (car path))
+              (cpath (cdr path))
+              (childs (hash-map->list cons (children tree) ))
+              (child (hash-ref (children tree) ckey)))
+
+         (set! childs (map (lambda (p) (cons (car p) (cdr p))) childs))
+         (set! childs
+               (cond
+                ((procedure? ckey)
+                 (filter (lambda (child) (ckey (car child))) childs))
+                ((is-a? child <tree>)
+                 (list (cons ckey child)))
+                (else
+                 (map cdr
+                   (filter
+                    (lambda (p)
+                      #t) childs))
+                 )))
+         (concatenate
+          (map
+           (lambda (child)
+             (tree-get-all-trees (cdr child) (cdr path)))
+           childs))
+         )))
+; get all children with procedure inside path
+(define-method (tree-get-all (tree <tree>) (path <list>))
+   (map value (tree-get-all-trees tree path)))
+;;; END dynamic-tree
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define-public editionID
   (define-scheme-function (inherit path)((boolean? #t) list?)
@@ -238,7 +373,7 @@
 ; store active edition-targets
 (define edition-targets '())
 ; store mods in a tree - to be accessed by path
-(define mod-tree (tree-create 'edition-mods))
+(define mod-tree (tree-create-dynamic 'edition-mods))
 
 ; add/activate edition-target
 (define-public (add-edition edition-target)
@@ -410,6 +545,8 @@
    (edition-target context-edition-id mods mom-list)
    (symbol? list? ly:music? imom-list?)
    (edition-mod-list edition-target context-edition-id mods mom-list)))
+
+; TODO development1.ly Start/Stop/Add-ModList
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; The edition-engraver
