@@ -524,16 +524,59 @@ Path: ~a" path)))))
   (let* ((mod-path (create-mod-path edition-target measure moment context-edition-id))
          (tmods (tree-get mod-tree mod-path))
          (tmods (if (list? tmods) tmods '())))
+    (define (wildcard2regex in)
+      (let* ((cl (string->list in))
+             (regex-string
+              (list->string
+               (apply append
+                 (map
+                  (lambda (c)
+                    (cond
+                     ((eq? c #\?) (list #\.))
+                     ((eq? c #\*) (list #\. #\*))
+                     (else (list c))
+                     )) cl)
+                 )))
+             (regex (make-regexp (string-append "^" regex-string "$") regexp/icase)))
+        (lambda (s)
+          (regexp-exec regex
+            (cond
+             ((string? s) s)
+             ((symbol? s) (symbol->string s))
+             (else (format "~A" s))
+             )))
+        ))
+    (define (regex-match in)
+      (let ((regex (make-regexp in regexp/icase)))
+        (lambda (s)
+          (regexp-exec regex
+            (cond
+             ((string? s) s)
+             ((symbol? s) (symbol->string s))
+             (else (format "~A" s))
+             )))
+        ))
     ; fetch procedures from path
     ; TODO build procedures from wildcard string
     (define (explode-mod-path mod-path)
-      (if (and
-           (symbol? mod-path)
-           (eq? #\* (last (string->list (symbol->string mod-path)))))
-          (let* ((proc-name (symbol->string mod-path))
-                 (proc-name (string->symbol (substring proc-name 0 (1- (string-length proc-name)))))
-                 (proc (ly:parser-lookup proc-name)))
-            (if (procedure? proc) proc mod-path))
+      (if (symbol? mod-path)
+          (let* ((mod-string (symbol->string mod-path))
+                 (mod-cl (string->list mod-string)))
+            (cond
+             ((and
+               (eq? #\{ (first mod-cl))
+               (eq? #\} (last mod-cl))
+               ) (wildcard2regex (substring mod-string 1 (1- (string-length mod-string)))))
+             ((and
+               (eq? #\/ (first mod-cl))
+               (eq? #\/ (last mod-cl))
+               ) (regex-match (substring mod-string 1 (1- (string-length mod-string)))))
+             ((and
+               (eq? #\* (last mod-cl)))
+              (let* ((proc-name (string->symbol (substring mod-string 0 (1- (string-length mod-string)))))
+                     (proc (ly:parser-lookup proc-name)))
+                (if (procedure? proc) proc mod-path)))
+             (else mod-path)))
           mod-path))
     ; (ly:message "mods ~A" mods)
     (tree-set! mod-tree (map explode-mod-path mod-path) (append tmods mods))

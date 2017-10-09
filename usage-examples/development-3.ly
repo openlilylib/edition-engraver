@@ -36,11 +36,51 @@
 
 \consistToContexts #edition-engraver Score.Staff.Voice.Lyrics
 
-% TODO build wildcard procedures
 #(define (my-wild-card v) (eq? #\l (string-ref (format "~A" v) 0)))
+%{
+#(use-modules (ice-9 regex))
+
+#(define (wildcard2regex in)
+   (let* ((cl (string->list in))
+          (regex-string
+           (list->string
+            (apply append
+              (map
+               (lambda (c)
+                 (cond
+                  ((eq? c #\?) (list #\.))
+                  ((eq? c #\*) (list #\. #\*))
+                  (else (list c))
+                  )) cl)
+              )))
+          (regex (make-regexp (string-append "^" regex-string "$") regexp/icase)))
+     (lambda (s)
+       (regexp-exec regex
+         (cond
+          ((string? s) s)
+          ((symbol? s) (symbol->string s))
+          (else (format "~A" s))
+          )))
+     ))
+#(define (regex-match in)
+   (let ((regex (make-regexp in regexp/icase)))
+     (lambda (s)
+       (regexp-exec regex
+         (cond
+          ((string? s) s)
+          ((symbol? s) (symbol->string s))
+          (else (format "~A" s))
+          )))
+     ))
+%}
+
+%#(define my-wild-card (wildcard2regex "l*"))
+%#(define my-wild-card (regex-match "^.[au].*$"))
 
 \addEdition test % path-elements ending with '*' denote a procedure
 \editionMod test 1 5/4 "my-wild-card*".Voice \once \override NoteHead.color = #green
+\editionMod test 2 2/4 "/^.[au].*$/".Voice \once \override NoteHead.color = #red
+\editionMod test 1 2/4 "{l*}".Voice \once \override NoteHead.color = #blue
 
 <<
   \new Staff \with {
