@@ -80,7 +80,7 @@
 \addEdition test % path-elements ending with '*' denote a procedure
 \editionMod test 1 5/4 "my-wild-card*".Voice \once \override NoteHead.color = #green
 \editionMod test 2 2/4 "/^.[au].*$/".Voice \once \override NoteHead.color = #red
-\editionMod test 1 2/4 "{l*}".Voice \once \override NoteHead.color = #blue
+\editionMod test 3 2/4 "{l*}".Voice \once \override NoteHead.color = #blue
 
 <<
   \new Staff \with {
