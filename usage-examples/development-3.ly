@@ -77,9 +77,12 @@
 %#(define my-wild-card (wildcard2regex "l*"))
 %#(define my-wild-card (regex-match "^.[au].*$"))
 
-\addEdition test % path-elements ending with '*' denote a procedure
+\addEdition test
+% path-elements ending with '*' denote a procedure
 \editionMod test 1 5/4 "my-wild-card*".Voice \once \override NoteHead.color = #green
+% path elements enclosed in '/' are regular expressions
 \editionMod test 2 2/4 "/^.[au].*$/".Voice \once \override NoteHead.color = #red
+% path elements encolse in curly brackets are wildcards
 \editionMod test 3 2/4 "{l*}".Voice \once \override NoteHead.color = #blue
 
 <<
