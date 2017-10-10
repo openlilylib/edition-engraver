@@ -37,54 +37,18 @@
 \consistToContexts #edition-engraver Score.Staff.Voice.Lyrics
 
 #(define (my-wild-card v) (eq? #\l (string-ref (format "~A" v) 0)))
-%{
-#(use-modules (ice-9 regex))
-
-#(define (wildcard2regex in)
-   (let* ((cl (string->list in))
-          (regex-string
-           (list->string
-            (apply append
-              (map
-               (lambda (c)
-                 (cond
-                  ((eq? c #\?) (list #\.))
-                  ((eq? c #\*) (list #\. #\*))
-                  (else (list c))
-                  )) cl)
-              )))
-          (regex (make-regexp (string-append "^" regex-string "$") regexp/icase)))
-     (lambda (s)
-       (regexp-exec regex
-         (cond
-          ((string? s) s)
-          ((symbol? s) (symbol->string s))
-          (else (format "~A" s))
-          )))
-     ))
-#(define (regex-match in)
-   (let ((regex (make-regexp in regexp/icase)))
-     (lambda (s)
-       (regexp-exec regex
-         (cond
-          ((string? s) s)
-          ((symbol? s) (symbol->string s))
-          (else (format "~A" s))
-          )))
-     ))
-%}
-
-%#(define my-wild-card (wildcard2regex "l*"))
-%#(define my-wild-card (regex-match "^.[au].*$"))
 
 \addEdition test
 
-% path-elements ending with '*' denote a procedure
-\editionMod test 1 5/4 "my-wild-card*".Voice \once \override NoteHead.color = #green
+% path-elements surrounded by '<' and '>' denote a procedure
+\editionMod test 1 5/4 "<my-wild-card>".Voice \once \override NoteHead.color = #green
 % path elements enclosed in '/' are regular expressions
 \editionMod test 2 2/4 "/^.[au].*$/".Voice \once \override NoteHead.color = #red
-% path elements encolse in curly brackets are wildcards
+\editionMod test 2 3/4 "/^[fl][au]$/".Voice \once \override NoteHead.color = #'(0.8 0.5 0.8)
+% path elements enclosed in curly brackets are wildcards
 \editionMod test 3 2/4 "{l*}".Voice \once \override NoteHead.color = #blue
+\editionMod test 3 3/4 "{*a}".Voice \once \override NoteHead.color = #'(0.5 0.5 1)
+\editionMod test 3 3/4 "{*u}".Voice \once \override NoteHead.color = #'(1 0.5 0.5)
 
 <<
   \new Staff \with {

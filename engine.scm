@@ -58,9 +58,11 @@
 (define children (@@ (oll-core tree) children))
 (define get-key (@@ (oll-core tree) key))
 (define value (@@ (oll-core tree) value))
+(define has-value (@@ (oll-core tree) has-value))
 (define has-value! (@@ (oll-core tree) has-value!))
 (define set-value! (@@ (oll-core tree) set-value!))
 (define type (@@ (oll-core tree) type))
+(define stdsort (@@ (oll-core tree) stdsort))
 
 ; dynamic-tree class to allow for wildcard paths
 (define-class <dynamic-tree> (<tree>))
@@ -149,37 +151,68 @@ Path: ~a" path)))))
 
 ; get all children with procedure inside path
 (define-method (tree-get-all-trees (tree <tree>) (path <list>))
-  (if (= (length path) 0)
-      (list tree)
-      (let* ((ckey (car path))
-             (cpath (cdr path))
-             (childs (hash-map->list cons (children tree) ))
-             (child (hash-ref (children tree) ckey)))
+   (if (= (length path) 0)
+       (list tree)
+       (let* ((ckey (car path))
+              (cpath (cdr path))
+              (childs (hash-map->list cons (children tree) ))
+              (child (hash-ref (children tree) ckey)))
 
-        (set! childs (map (lambda (p) (cons (car p) (cdr p))) childs))
-  (ly:message "childs ~A" (map pair? childs))
-        (set! childs
-              (cond
-               ((procedure? ckey)
-                (filter (lambda (child) (cons (car child) (ckey (car child))) childs)))
-               ((is-a? child <tree>)
-                (list (cons ckey child)))
-               (else
-                (map cdr
+         (set! childs (map (lambda (p) (cons (car p) (cdr p))) childs))
+         (set! childs
+               (cond
+                ((procedure? ckey)
+                 (filter (lambda (child) (ckey (car child))) childs))
+                ((is-a? child <tree>)
+                 (list (cons ckey child)))
+                (else
+                 (map
+                  (lambda (child)
+                    (cons ckey (cdr child)))
                   (filter
                    (lambda (p)
-                     #t) childs))
-                )))
-   (ly:message "childs ~A" (map tree? childs))
-        (concatenate
-         (map
-          (lambda (child)
-            (tree-get-all-trees (cdr child) (cdr path)))
-          childs))
-        )))
+                     (let* ((tree (cdr p))
+                            (tkey (get-key tree)))
+                       (and (procedure? tkey) (tkey ckey))
+                       )) childs))
+                 )))
+         (concatenate
+          (map
+           (lambda (child)
+             (tree-get-all-trees (cdr child) (cdr path)))
+           childs))
+         )))
 ; get all children with procedure inside path
 (define-method (tree-get-all (tree <tree>) (path <list>))
   (map value (tree-get-all-trees tree path)))
+
+; walk the tree and call callback for every node
+(define-method (tree-walk (tree <dynamic-tree>) (path <list>) (callback <procedure>) . opts)
+  (let ((dosort (assoc-get 'sort opts #f))
+        (sortby (assoc-get 'sortby opts stdsort))
+        (doempty (assoc-get 'empty opts #f)))
+    (if (or doempty (has-value tree))
+        (callback path (get-key tree) (value tree)))
+    (for-each
+     (lambda (p)
+       (tree-walk (cdr p) `(,@path ,(car p)) callback `(sort . ,dosort) `(sortby . ,sortby) `(empty . ,doempty)))
+     (if dosort
+         (sort (hash-table->alist (children tree)) sortby)
+         (hash-table->alist (children tree)) ))
+    ))
+
+; walk the tree and call callback for every node in sub-tree at path
+(define-method (tree-walk-branch (tree <dynamic-tree>) (path <list>) (callback <procedure>) . opts)
+  (let ((dosort (assoc-get 'sort opts))
+        (sortby (assoc-get 'sortby opts stdsort))
+        (doempty (assoc-get 'empty opts))
+        (ctrees (tree-get-all-trees tree path)))
+    (for-each
+     (lambda (ctree)
+       (tree-walk ctree path callback `(sort . ,dosort) `(sortby . ,sortby) `(empty . ,doempty)))
+     ctrees)
+    ))
+
 ;;; END dynamic-tree
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -528,17 +561,17 @@ Path: ~a" path)))))
          (tmods (if (list? tmods) tmods '())))
     (define (wildcard2regex in)
       (let ((regex-string
-              (list->string
-               `(#\^
-                 ,@(apply append
-                     (map
-                      (lambda (c)
-                        (cond
-                         ((eq? c #\?) (list #\.))
-                         ((eq? c #\*) (list #\. #\*))
-                         (else (list c))
-                         )) in))
-                 #\$))))
+             (list->string
+              `(#\^
+                ,@(apply append
+                    (map
+                     (lambda (c)
+                       (cond
+                        ((eq? c #\?) (list #\.))
+                        ((eq? c #\*) (list #\. #\*))
+                        (else (list c))
+                        )) in))
+                #\$))))
         (regex-match regex-string)
         ))
     (define (regex-match in)
@@ -568,8 +601,9 @@ Path: ~a" path)))))
                (eq? #\/ (last mod-cl))
                ) (regex-match (substring mod-string 1 (1- (string-length mod-string)))))
              ((and
-               (eq? #\* (last mod-cl)))
-              (let* ((proc-name (string->symbol (substring mod-string 0 (1- (string-length mod-string)))))
+               (eq? #\< (first mod-cl))
+               (eq? #\> (last mod-cl)))
+              (let* ((proc-name (string->symbol (substring mod-string 1 (1- (string-length mod-string)))))
                      (proc (ly:parser-lookup proc-name)))
                 (if (procedure? proc) proc mod-path)))
              (else mod-path)))
@@ -801,18 +835,18 @@ Path: ~a" path)))))
                (let ((mtrees (tree-get-all-trees mod-tree context-edition-sid)))
                  (for-each
                   (lambda (mtree)
-                     (tree-walk mtree '()
-                       (lambda (path k val)
-                         (let ((plen (length path)))
-                           (if (and (= plen 3)(list? val)
-                                    (integer? (list-ref path 0))
-                                    (member (list-ref path 2) edition-targets))
-                               (let* ((subpath (list (list-ref path 0)(list-ref path 1)))
-                                      (submods (tree-get context-mods subpath)))
-                                 (tree-set! context-mods subpath
-                                   (if (list? submods) (append submods val) val))
-                                 ))))
-                       )) mtrees)))
+                    (tree-walk mtree '()
+                      (lambda (path k val)
+                        (let ((plen (length path)))
+                          (if (and (= plen 3)(list? val)
+                                   (integer? (list-ref path 0))
+                                   (member (list-ref path 2) edition-targets))
+                              (let* ((subpath (list (list-ref path 0)(list-ref path 1)))
+                                     (submods (tree-get context-mods subpath)))
+                                (tree-set! context-mods subpath
+                                  (if (list? submods) (append submods val) val))
+                                ))))
+                      )) mtrees)))
              `((,@context-edition-id ,context-name)
                ,@(if context-id `(
                                    (,@context-edition-id ,context-id)
