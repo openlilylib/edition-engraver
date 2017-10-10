@@ -525,30 +525,24 @@ Path: ~a" path)))))
          (tmods (tree-get mod-tree mod-path))
          (tmods (if (list? tmods) tmods '())))
     (define (wildcard2regex in)
-      (let* ((cl (string->list in))
-             (regex-string
+      (let ((regex-string
               (list->string
-               (apply append
-                 (map
-                  (lambda (c)
-                    (cond
-                     ((eq? c #\?) (list #\.))
-                     ((eq? c #\*) (list #\. #\*))
-                     (else (list c))
-                     )) cl)
-                 )))
-             (regex (make-regexp (string-append "^" regex-string "$") regexp/icase)))
-        (lambda (s)
-          (regexp-exec regex
-            (cond
-             ((string? s) s)
-             ((symbol? s) (symbol->string s))
-             (else (format "~A" s))
-             )))
+               `(#\^
+                 ,@(apply append
+                     (map
+                      (lambda (c)
+                        (cond
+                         ((eq? c #\?) (list #\.))
+                         ((eq? c #\*) (list #\. #\*))
+                         (else (list c))
+                         )) in))
+                 #\$))))
+        (regex-match regex-string)
         ))
     (define (regex-match in)
       (let ((regex (make-regexp in regexp/icase)))
         (lambda (s)
+          (ly:message "/~A/: ~A" in s)
           (regexp-exec regex
             (cond
              ((string? s) s)
@@ -566,7 +560,7 @@ Path: ~a" path)))))
              ((and
                (eq? #\{ (first mod-cl))
                (eq? #\} (last mod-cl))
-               ) (wildcard2regex (substring mod-string 1 (1- (string-length mod-string)))))
+               ) (wildcard2regex (list-tail (list-head mod-cl (1- (length mod-cl))) 1) ))
              ((and
                (eq? #\/ (first mod-cl))
                (eq? #\/ (last mod-cl))
@@ -577,7 +571,8 @@ Path: ~a" path)))))
                      (proc (ly:parser-lookup proc-name)))
                 (if (procedure? proc) proc mod-path)))
              (else mod-path)))
-          mod-path))
+          mod-path
+          ))
     ; (ly:message "mods ~A" mods)
     (tree-set! mod-tree (map explode-mod-path mod-path) (append tmods mods))
     ))
@@ -660,9 +655,8 @@ Path: ~a" path)))))
              (current-mods (tree-get context-mods (list measure measurePos)))
              (measure-length (ly:context-property timing 'measureLength))
              (positions (tree-get-keys context-mods (list measure))))
-
         ; propagate mods into the next measure, if the moment exceeds measure-length
-        ; TODO this works as long there are no cadenza parts!
+        ; TODO this works as long there are no cadenza parts! (look for Timing.timing = #f)
         (if (and (list? positions) ; do we have any mods in this measure?
                  (or (not (integer? track-mod-move)) ; do it once per measure
                      (not (= track-mod-move measure))

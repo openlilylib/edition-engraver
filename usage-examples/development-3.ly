@@ -78,6 +78,7 @@
 %#(define my-wild-card (regex-match "^.[au].*$"))
 
 \addEdition test
+
 % path-elements ending with '*' denote a procedure
 \editionMod test 1 5/4 "my-wild-card*".Voice \once \override NoteHead.color = #green
 % path elements enclosed in '/' are regular expressions
