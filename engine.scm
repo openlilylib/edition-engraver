@@ -157,10 +157,11 @@ Path: ~a" path)))))
              (child (hash-ref (children tree) ckey)))
 
         (set! childs (map (lambda (p) (cons (car p) (cdr p))) childs))
+  (ly:message "childs ~A" (map pair? childs))
         (set! childs
               (cond
                ((procedure? ckey)
-                (filter (lambda (child) (ckey (car child))) childs))
+                (filter (lambda (child) (cons (car child) (ckey (car child))) childs)))
                ((is-a? child <tree>)
                 (list (cons ckey child)))
                (else
@@ -169,6 +170,7 @@ Path: ~a" path)))))
                    (lambda (p)
                      #t) childs))
                 )))
+   (ly:message "childs ~A" (map tree? childs))
         (concatenate
          (map
           (lambda (child)
@@ -796,8 +798,9 @@ Path: ~a" path)))))
             (for-each
              (lambda (context-edition-sid)
                ;(ly:message "~A" context-edition-sid)
-               (let ((mtree (tree-get-tree mod-tree context-edition-sid)))
-                 (if (tree? mtree)
+               (let ((mtrees (tree-get-all-trees mod-tree context-edition-sid)))
+                 (for-each
+                  (lambda (mtree)
                      (tree-walk mtree '()
                        (lambda (path k val)
                          (let ((plen (length path)))
@@ -809,7 +812,7 @@ Path: ~a" path)))))
                                  (tree-set! context-mods subpath
                                    (if (list? submods) (append submods val) val))
                                  ))))
-                       ))))
+                       )) mtrees)))
              `((,@context-edition-id ,context-name)
                ,@(if context-id `(
                                    (,@context-edition-id ,context-id)
