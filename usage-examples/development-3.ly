@@ -43,7 +43,7 @@
 % path-elements surrounded by '<' and '>' denote a procedure
 \editionMod test 1 5/4 "<my-wild-card>".Voice \once \override NoteHead.color = #green
 % path elements enclosed in '/' are regular expressions
-\editionMod test 2 2/4 "/^.[au].*$/".Voice \once \override NoteHead.color = #red
+\editionMod test 2 2/4 "/^.[eu].*$/".Voice \once \override NoteHead.color = #red
 \editionMod test 2 3/4 "/^[fl][au]$/".Voice \once \override NoteHead.color = #'(0.8 0.5 0.8)
 % path elements enclosed in curly brackets are wildcards
 \editionMod test 3 2/4 "{l*}".Voice \once \override NoteHead.color = #blue
