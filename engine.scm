@@ -689,7 +689,17 @@ Path: ~a" path)))))
              (timing (ly:context-find context 'Timing))
              (measure (ly:context-property timing 'currentBarNumber))
              (measurePos (ly:context-property timing 'measurePosition))
-             (current-mods (tree-get context-mods (list measure measurePos)))
+             (current-mods (tree-get context-mods (list measure measurePos))))
+        
+        (if (list? current-mods) current-mods '())
+        
+        ))
+    (define (propagate-mods)
+      (log-slot "propagate-mods")
+      (let* ((moment (ly:context-current-moment context))
+             (timing (ly:context-find context 'Timing))
+             (measure (ly:context-property timing 'currentBarNumber))
+             (measurePos (ly:context-property timing 'measurePosition))
              (measure-length (ly:context-property timing 'measureLength))
              (positions (tree-get-keys context-mods (list measure))))
         ; propagate mods into the next measure, if the moment exceeds measure-length
@@ -723,8 +733,6 @@ Path: ~a" path)))))
                positions)
               ))
             (set! track-mod-move measure))
-
-        (if (list? current-mods) current-mods '())
         ))
 
     (define (broadcast-music mod clsevent)
@@ -900,6 +908,8 @@ Path: ~a" path)))))
        (stop-translation-timestep .
          ,(lambda (trans)
             (log-slot "stop-translation-timestep")
+            ; we have to propagate measure-length exceeding mods here to correctly follow time sigs
+            (propagate-mods)
             (for-each ; revert/reset once override/set
               (lambda (mod)
                 (cond

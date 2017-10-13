@@ -37,8 +37,27 @@
 \paper {
   ragged-right = ##f
 }
+\layout {
+  \context {
+    \Score
+    \override BarNumber.break-visibility = #'#(#t #t #t)
+    barNumberVisibility = #all-bar-numbers-visible
+  }
+}
 
 \consistToContexts #edition-engraver Score.Staff.Voice.Lyrics
+
+% TODO add mod-marker function, do automatically track and color all modded elements?
+% display primary time-address
+editionMod =
+#(let ((short-mom? (@@ (edition-engraver engine) short-mom?)))
+   (define-void-function
+    (edition-target measure moment context-edition-id mods)
+    (symbol? integer? short-mom? list? music-or-context-mod?)
+    ((@ (edition-engraver engine) editionMod) edition-target measure moment context-edition-id
+      #{ ^\markup \box \fontsize #-4 $(format "~A ~A" measure moment) #})
+    ((@ (edition-engraver engine) editionMod) edition-target measure moment context-edition-id mods)
+    ))
 
 \addEdition test
 \editionMod test 1 #(ly:make-moment -1/4) Staff \once \override NoteHead.color = #red
@@ -46,6 +65,10 @@
 \editionMod test 1 9/4 Staff { \once \override NoteHead.color = #red <>^X }
 \editionMod test 2 0/4 Staff \once \override Stem.color = #green
 
+\editionMod test 3 8/4 Staff \once \override NoteHead.color = #green
+\editionMod test 5 4/4 Staff \once \override NoteHead.color = #green
+
 \relative {
   \partial 4 c'' | b bes b c | d e fis c | b bes b c |
+  \time 3/4 b4 bes a | as g ges | f a a |
 }
