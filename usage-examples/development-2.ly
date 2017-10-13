@@ -68,6 +68,8 @@ editionMod =
 \editionMod test 3 8/4 Staff \once \override NoteHead.color = #green
 \editionMod test 5 4/4 Staff \once \override NoteHead.color = #green
 
+\editionMod test 6 3/4 Staff \bar "|."
+
 \relative {
   \partial 4 c'' | b bes b c | d e fis c | b bes b c |
   \time 3/4 b4 bes a | as g ges | f a a |
