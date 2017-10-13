@@ -48,6 +48,7 @@
 
 ; add context properties descriptions (private lambda in module 'lily')
 ((@@ (lily) translator-property-description) 'edition-id list? "edition id (list)")
+((@@ (lily) translator-property-description) 'edition-anchor symbol? "edition-mod anchor for relative timing (symbol)")
 ((@@ (lily) translator-property-description) 'edition-engraver-log boolean? "de/activate logging (boolean)")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
