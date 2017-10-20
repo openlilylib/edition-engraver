@@ -30,7 +30,9 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \version "2.19.37"
-\include "package.ily"
+
+\include "oll-core/package.ily"
+\loadPackage edition-engraver
 
 \paper {
   ragged-right = ##f
@@ -39,7 +41,7 @@
 \consistToContexts #edition-engraver Score.Staff.Voice.Lyrics
 
 \addEdition test
-\editionMod test 1 #(ly:make-moment -1/4) Staff  \override NoteHead.color = #red
+\editionMod test 1 #(ly:make-moment -1/4) Staff \once \override NoteHead.color = #red
 
 \relative {
   \partial 4 c'' | b bes b c |

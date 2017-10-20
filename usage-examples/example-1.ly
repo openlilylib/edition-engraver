@@ -61,7 +61,7 @@
 \editionMod test 5 0/4 sing.with.bach.Score \set proportionalNotationDuration = #(ly:make-moment 1/24)
 \editionMod test 7 0/4 sing.with.bach.Score \unset proportionalNotationDuration
 
-\editionMod test 5 1/4 sing.with.bach.along.Staff ^"Hallo"
+\editionMod test 5 1/4 sing.with.bach.along.Staff ^\tweak self-alignment-X #0 -"Hallo"
 \editionMod test 9 0/4 sing.with.bach.along.Staff \mark \default
 \editionMod test 10 0/4 sing.with.bach.along.Staff \mark \default
 
