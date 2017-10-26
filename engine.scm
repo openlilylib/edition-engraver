@@ -152,37 +152,37 @@ Path: ~a" path)))))
 
 ; get all children with procedure inside path
 (define-method (tree-get-all-trees (tree <tree>) (path <list>))
-   (if (= (length path) 0)
-       (list tree)
-       (let* ((ckey (car path))
-              (cpath (cdr path))
-              (childs (hash-map->list cons (children tree) ))
-              (child (hash-ref (children tree) ckey)))
+  (if (= (length path) 0)
+      (list tree)
+      (let* ((ckey (car path))
+             (cpath (cdr path))
+             (childs (hash-map->list cons (children tree) ))
+             (child (hash-ref (children tree) ckey)))
 
-         (set! childs (map (lambda (p) (cons (car p) (cdr p))) childs))
-         (set! childs
-               (cond
-                ((procedure? ckey)
-                 (filter (lambda (child) (ckey (car child))) childs))
-                ((is-a? child <tree>)
-                 (list (cons ckey child)))
-                (else
-                 (map
-                  (lambda (child)
-                    (cons ckey (cdr child)))
-                  (filter
-                   (lambda (p)
-                     (let* ((tree (cdr p))
-                            (tkey (get-key tree)))
-                       (and (procedure? tkey) (tkey ckey))
-                       )) childs))
-                 )))
-         (concatenate
-          (map
-           (lambda (child)
-             (tree-get-all-trees (cdr child) (cdr path)))
-           childs))
-         )))
+        (set! childs (map (lambda (p) (cons (car p) (cdr p))) childs))
+        (set! childs
+              (cond
+               ((procedure? ckey)
+                (filter (lambda (child) (ckey (car child))) childs))
+               ((is-a? child <tree>)
+                (list (cons ckey child)))
+               (else
+                (map
+                 (lambda (child)
+                   (cons ckey (cdr child)))
+                 (filter
+                  (lambda (p)
+                    (let* ((tree (cdr p))
+                           (tkey (get-key tree)))
+                      (and (procedure? tkey) (tkey ckey))
+                      )) childs))
+                )))
+        (concatenate
+         (map
+          (lambda (child)
+            (tree-get-all-trees (cdr child) (cdr path)))
+          childs))
+        )))
 ; get all children with procedure inside path
 (define-method (tree-get-all (tree <tree>) (path <list>))
   (map value (tree-get-all-trees tree path)))
@@ -682,17 +682,43 @@ Path: ~a" path)))))
             (ly:context-property context 'measurePosition)
             )))
 
-    ; find mods for the current time-spec
-    (define (find-mods)
-      (log-slot "find-mods")
+    (define (elist l) (if (list? l) l '()))
+    (define (rel2abs)
       (let* ((moment (ly:context-current-moment context))
              (timing (ly:context-find context 'Timing))
              (measure (ly:context-property timing 'currentBarNumber))
              (measurePos (ly:context-property timing 'measurePosition))
-             (current-mods (tree-get context-mods (list measure measurePos))))
-        
-        (if (list? current-mods) current-mods '())
-        
+             (mkeys (tree-get-keys context-mods (list measure)))
+             (mmoms (filter ly:moment? (elist mkeys))))
+        (for-each
+         (lambda (mp)
+           ;(ly:message "~A mp: ~A" measure mp)
+           (let* ((mmom (ly:moment-add mp (ly:moment-sub moment measurePos)))
+                  (amods (tree-get context-mods (list mmom)))
+                  (rmods (tree-get context-mods (list measure mp))))
+             (tree-set! context-mods (list mmom) (append (elist amods) (elist rmods)))
+             )) mmoms)
+        (for-each
+         (lambda (mp)
+           (tree-unset! context-mods (list measure mp))
+           ) mmoms)
+        ))
+
+    ; find mods for the current time-spec
+    (define (find-mods)
+      (log-slot "find-mods")
+      (rel2abs)
+      (let* ((moment (ly:context-current-moment context))
+             (timing (ly:context-find context 'Timing))
+             (measure (ly:context-property timing 'currentBarNumber))
+             (measurePos (ly:context-property timing 'measurePosition))
+             (current-mods-abs (tree-get context-mods (list moment)))
+             (current-mods-rel (tree-get context-mods (list measure measurePos)))
+             (current-mods '()))
+(ly:message "abs: ~A rel: ~A" (length (elist current-mods-abs)) (length (elist current-mods-rel)))
+        (if (list? current-mods-rel) (set! current-mods current-mods-rel))
+        (if (list? current-mods-abs) (set! current-mods (append current-mods current-mods-abs)))
+        current-mods
         ))
     (define (propagate-mods)
       (log-slot "propagate-mods")
