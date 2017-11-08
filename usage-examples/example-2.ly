@@ -55,6 +55,7 @@
 \editionMod test 2 0/4 Score \time 3/4
 \editionMod test 2 0/4 Score \tempo "Allegro" 4=135
 \editionMod test 2 0/4 Voice e''4 % articulations crash right now!
+\editionMod test 2 0/4 Voice -. % ... but they can be applied separately
 \editionMod test 2 0/4 Voice \p
 \editionMod test 2 0/4 Voice \<
 \editionMod test 2 1/4 Lyrics #(make-music 'HyphenEvent)

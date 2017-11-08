@@ -715,7 +715,7 @@ Path: ~a" path)))))
              (current-mods-abs (tree-get context-mods (list moment)))
              (current-mods-rel (tree-get context-mods (list measure measurePos)))
              (current-mods '()))
-(ly:message "abs: ~A rel: ~A" (length (elist current-mods-abs)) (length (elist current-mods-rel)))
+;(ly:message "abs: ~A rel: ~A" (length (elist current-mods-abs)) (length (elist current-mods-rel)))
         (if (list? current-mods-rel) (set! current-mods current-mods-rel))
         (if (list? current-mods-abs) (set! current-mods (append current-mods current-mods-abs)))
         current-mods
