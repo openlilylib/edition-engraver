@@ -235,7 +235,7 @@ Path: ~a" path)))))
 ; convert to a moment
 (define (short-mom->moment m)
   (cond
-   ((integer? m)(ly:make-moment m/4))
+   ((integer? m)(ly:make-moment (/ m 4)))
    ((fraction? m)(ly:make-moment (car m) (cdr m)))
    ((rational? m)(ly:make-moment m))
    ((ly:moment? m) m)
