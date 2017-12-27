@@ -47,7 +47,7 @@
 \editionMod test 13 3/8 sing.with.bach.along.Voice.C \once \override NoteHead.color = #red
 
 
-\editionModList test sing.with.bach.Score \break #'(5 9 13 17)
+\editionModList test sing.with.bach.Score \break 5,9,13,17
 
 \editionMod test 2 2/4 sing.with.bach.along.Staff \clef "alto"
 \editionMod test 3 2/4 sing.with.bach.along.Staff \clef "G"
