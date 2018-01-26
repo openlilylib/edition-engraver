@@ -25,7 +25,7 @@
 % openLilyLib is maintained by Urs Liska, ul@openlilylib.org                  %
 % edition-engraver is maintained by Jan-Peter Voigt, jp.voigt@gmx.de          %
 % and others.                                                                 %
-%       Copyright Jan-Peter Voigt, Urs Liska, 2016                            %
+%       Copyright Jan-Peter Voigt, Urs Liska, 2016-2018                       %
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -41,32 +41,36 @@
 \editionMod test 2 2/4 sing.with.bach.along.Voice.B \override NoteHead.color = #green
 \editionMod test 2 3/4 sing.with.bach.along.Voice.B \override NoteHead.color = #blue
 \editionMod test 3 1/4 sing.with.bach.along.Voice.B \revert NoteHead.color
-% TODO how to enter this?
-\editionMod test 5 0/4 sing.with.bach.along.Voice.#(string->symbol "1") \revert NoteHead.color
+% the following refers to the Voice named "1" which is the upper voice inside << {} \\ {} >>
+\editionMod test 5 0/4 sing.with.bach.along.Voice."1" \revert NoteHead.color
 
-\editionMod test 13 3/8 sing.with.bach.along.Voice.C \once \override NoteHead.color = #red
+% you can reduce redundancy with variables:
+BACH = sing.with.bach
+STAFF = along
+ba = sing.with.bach.\STAFF % (TODO we need a helper for \BACH.\STAFF)
+\editionMod test 13 3/8 \ba.Voice."2" \once \override NoteHead.color = #red
 
+% insert a list of modifications
+\editionModList test \BACH.Score \break 5,9,13,17
 
-\editionModList test sing.with.bach.Score \break 5,9,13,17
-
-\editionMod test 2 2/4 sing.with.bach.along.Staff \clef "alto"
-\editionMod test 3 2/4 sing.with.bach.along.Staff \clef "G"
-\editionMod test 5 0/4 sing.with.bach.along.Staff \bar ".|:-||"
-\editionMod test 5 0/4 sing.with.bach.along.Staff {
+\editionMod test 2 2/4 \ba.Staff \clef "alto"
+\editionMod test 3 2/4 \ba.Staff \clef "G"
+\editionMod test 5 0/4 \ba.Staff \bar ".|:-||"
+\editionMod test 5 0/4 \ba.Staff {
   \once \override KeySignature.color = #red
   \key f \major
 }
-\editionMod test 10 0/4 sing.with.bach.along.Staff \key g \major
+\editionMod test 10 0/4 \ba.Staff \key g \major
 
-\editionMod test 5 0/4 sing.with.bach.Score \set proportionalNotationDuration = #(ly:make-moment 1/24)
-\editionMod test 7 0/4 sing.with.bach.Score \unset proportionalNotationDuration
+\editionMod test 5 0/4 \BACH.Score \set proportionalNotationDuration = #(ly:make-moment 1/24)
+\editionMod test 7 0/4 \BACH.Score \unset proportionalNotationDuration
 
-\editionMod test 5 1/4 sing.with.bach.along.Staff ^\tweak self-alignment-X #0 -"Hallo"
-\editionMod test 9 0/4 sing.with.bach.along.Staff \mark \default
-\editionMod test 10 0/4 sing.with.bach.along.Staff \mark \default
+\editionMod test 5 1/4 \ba.Staff ^\tweak self-alignment-X #0 -"Hallo"
+\editionMod test 9 0/4 \ba.Staff \mark \default
+\editionMod test 10 0/4 \ba.Staff \mark \default
 
 
-\editionMod test 10 0/4 sing.with.bach.along.Voice.B {
+\editionMod test 10 0/4 \ba.Voice.B {
   \once \override NoteHead.extra-offset = #'(2 . -1)
   \once \override NoteHead.color = #green
 }
@@ -79,7 +83,7 @@
 \layout {
   \context {
     \Score
-    \editionID ##f sing.with.bach
+    \editionID ##f \BACH
     %edition-engraver-log = ##t
   }
   \context {
@@ -89,7 +93,7 @@
 }
 
 \new Staff = "BACH" \with {
-  \editionID along
+  \editionID \STAFF
 } {
   R1
   <<
