@@ -183,6 +183,7 @@ Path: ~a" path)))))
             (tree-get-all-trees (cdr child) (cdr path)))
           childs))
         )))
+
 ; get all children with procedure inside path
 (define-method (tree-get-all (tree <tree>) (path <list>))
   (map value (tree-get-all-trees tree path)))
