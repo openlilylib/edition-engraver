@@ -233,7 +233,7 @@ Path: ~a" path)))))
 ; a predicate for short input of ly:moment?s
 (define (short-mom? v)(or (integer? v)(fraction? v)(rational? v)(ly:moment? v)))
 ; convert to a moment
-(define (short-mom->moment m)
+(define (short-mom->moment m . opts)
   (cond
    ((integer? m)(ly:make-moment (/ m 4)))
    ((fraction? m)(ly:make-moment (car m) (cdr m)))
