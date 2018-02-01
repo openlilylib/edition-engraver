@@ -1,0 +1,20 @@
+#
+# openLilyLib/edition-engraver configuration
+#
+
+name: edition-engraver
+display-name: edition-engraver
+short-description: Injecting tweaks into LilyPond scores
+description: <
+  The edition-engraver is a tool that allows to inject overrides, breaks and
+  other modifications into a score without bloating the source but cleanly
+  separating content and layout.
+  >
+oll-core: 0.5.0
+maintainers: [
+  Jan-Peter Voigt <jp.voigt@gmx.de>
+  ]
+version: 0.0.1
+license: GPL3
+website: https://github.com/openlilylib/edition-engraver
+repository: https://github.com/openlilylib/edition-engraver.git

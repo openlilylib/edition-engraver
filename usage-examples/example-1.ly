@@ -30,7 +30,9 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \version "2.19.37"
-\include "edition-engraver.ily"
+
+\include "oll-core/package.ily"
+\loadPackage edition-engraver
 
 \addEdition test
 
@@ -59,9 +61,15 @@
 \editionMod test 5 0/4 sing.with.bach.Score \set proportionalNotationDuration = #(ly:make-moment 1/24)
 \editionMod test 7 0/4 sing.with.bach.Score \unset proportionalNotationDuration
 
-\editionMod test 5 1/4 sing.with.bach.along.Staff ^"Hallo"
+\editionMod test 5 1/4 sing.with.bach.along.Staff ^\tweak self-alignment-X #0 -"Hallo"
 \editionMod test 9 0/4 sing.with.bach.along.Staff \mark \default
 \editionMod test 10 0/4 sing.with.bach.along.Staff \mark \default
+
+
+\editionMod test 10 0/4 sing.with.bach.along.Voice.B {
+  \once \override NoteHead.extra-offset = #'(2 . -1)
+  \once \override NoteHead.color = #green
+}
 
 % "Install" the edition-engraver in a number of contexts.
 % The order is not relevant,
@@ -85,7 +93,7 @@
 } {
   R1
   <<
-    \repeat unfold 10 \relative c'' { bes4 a c b } \\
+    \repeat unfold 10 \relative c'' { bes4 ( a c b ) } \\
     \repeat unfold 10 \relative c' { d4. e4 f8 g4 }
   >>
   <<

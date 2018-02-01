@@ -33,19 +33,189 @@
 (define-module (edition-engraver engine))
 
 ; use tree structure - but not alist-based!
-; TODO: tree.scm should be placed in another more generic module (oll-core?)
 (use-modules
  (lily)
  (oop goops)
  (srfi srfi-1)
- (oll-core scheme tree)
+ (oll-core tree)
  )
 
 (ly:message "initializing edition-engraver ...")
 
+; Here are some uses of '@@' which should be avoided!
+
+; 1. If the EE will be integrated into LilyPond proper this will be not necessary anymore
+
 ; add context properties descriptions (private lambda in module 'lily')
 ((@@ (lily) translator-property-description) 'edition-id list? "edition id (list)")
+((@@ (lily) translator-property-description) 'edition-anchor symbol? "edition-mod anchor for relative timing (symbol)")
 ((@@ (lily) translator-property-description) 'edition-engraver-log boolean? "de/activate logging (boolean)")
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; 2. The dynamic-tree will be integrated into (oll-core tree) to avoid this discouraged use of '@@'
+;;; START dynamic-tree
+
+(define <tree> (@@ (oll-core tree) <tree>))
+(define children (@@ (oll-core tree) children))
+(define get-key (@@ (oll-core tree) key))
+(define value (@@ (oll-core tree) value))
+(define has-value (@@ (oll-core tree) has-value))
+(define has-value! (@@ (oll-core tree) has-value!))
+(define set-value! (@@ (oll-core tree) set-value!))
+(define type (@@ (oll-core tree) type))
+(define stdsort (@@ (oll-core tree) stdsort))
+
+; dynamic-tree class to allow for wildcard paths
+(define-class <dynamic-tree> (<tree>))
+
+; create dynamic-tree
+(define-public (tree-create-dynamic . key)
+  (let ((k (if (> (length key) 0)(car key) 'node)))
+    (make <dynamic-tree> #:key k)
+    ))
+
+; adapted version of tree-set! to take care of procedures inside the path
+(define-method (tree-set! (create <boolean>) (tree <dynamic-tree>) (path <list>) val)
+  (if (= (length path) 0)
+      ;; end of path reached: set value
+      (let ((pred? (type tree)))
+        (if pred?
+            ;; if tree has a type defined check value against it before setting
+            (if (pred? val)
+                (begin
+                 (set-value! tree val)
+                 (has-value! tree #t))
+                (begin
+                 (ly:input-warning (*location*)
+                   (format "TODO: Format warning about typecheck error in tree-set!
+Expected ~a, got ~a" (procedure-name pred?) val))
+                 (set! val #f)))
+            ;; if no typecheck is set simply set the value
+            (begin
+             (set-value! tree val)
+             (has-value! tree #t)
+             )))
+      ;; determine child
+      (let* ((ckey (car path))
+             (cpath (cdr path))
+             (child (hash-ref (children tree) ckey)))
+        (if (not (tree? child))
+            ;; create child node if option is set
+            (if create
+                (begin
+                 (set! child (make <dynamic-tree> #:key ckey))
+                 (hash-set! (children tree) ckey child))))
+        (if (tree? child)
+            ;; recursively walk path
+            (tree-set! create child cpath val)
+            (ly:input-warning (*location*)
+              (format "TODO: Format missing path warning in tree-set!
+Path: ~a" path)))))
+  val)
+
+; adapted version of tree-get-tree to take care of procedures inside path and/or tree
+(define-method (tree-get-tree (tree <dynamic-tree>) (path <list>))
+  (if (= (length path) 0)
+      tree
+      (let* ((ckey (car path))
+             (cpath (cdr path))
+             (child (hash-ref (children tree) ckey)))
+        (if (is-a? child <tree>)
+            (tree-get-tree child cpath)
+            (let* ((childs (hash-map->list cons (children tree) ))
+                   (childs (map (lambda (p) (cons (car p) (cdr p))) childs))
+                   (match #f))
+              ;(ly:message "~A" childs)
+              (for-each
+               (lambda (pat)
+                 (if (and (eq? #f match) (procedure? (car pat)) ((car pat) ckey))
+                     (set! match (cons ckey (tree-get-tree (cdr pat) cpath)))
+                     )) childs)
+              (if (pair? match) (cdr match) #f)
+              ))
+        )))
+
+; adapted version of tree-get-tree to take care of procedures inside path or tree
+(define-method (display (tree <dynamic-tree>) port)
+  (let ((tkey (get-key tree)))
+    (tree-display tree
+      `(port . ,port)
+      `(pformat . ,(lambda (v)
+                     (cond
+                      ((procedure? v)
+                       (let ((pn (procedure-name v))
+                             (label (object-property v 'path-label)))
+                         (if label label (format "<~A>" pn))))
+                      (else (format "~A" v))
+                      )))
+      )))
+
+; get all children with procedure inside path
+(define-method (tree-get-all-trees (tree <tree>) (path <list>))
+   (if (= (length path) 0)
+       (list tree)
+       (let* ((ckey (car path))
+              (cpath (cdr path))
+              (childs (hash-map->list cons (children tree) ))
+              (child (hash-ref (children tree) ckey)))
+
+         (set! childs (map (lambda (p) (cons (car p) (cdr p))) childs))
+         (set! childs
+               (cond
+                ((procedure? ckey)
+                 (filter (lambda (child) (ckey (car child))) childs))
+                ((is-a? child <tree>)
+                 (list (cons ckey child)))
+                (else
+                 (map
+                  (lambda (child)
+                    (cons ckey (cdr child)))
+                  (filter
+                   (lambda (p)
+                     (let* ((tree (cdr p))
+                            (tkey (get-key tree)))
+                       (and (procedure? tkey) (tkey ckey))
+                       )) childs))
+                 )))
+         (concatenate
+          (map
+           (lambda (child)
+             (tree-get-all-trees (cdr child) (cdr path)))
+           childs))
+         )))
+; get all children with procedure inside path
+(define-method (tree-get-all (tree <tree>) (path <list>))
+  (map value (tree-get-all-trees tree path)))
+
+; walk the tree and call callback for every node
+(define-method (tree-walk (tree <dynamic-tree>) (path <list>) (callback <procedure>) . opts)
+  (let ((dosort (assoc-get 'sort opts #f))
+        (sortby (assoc-get 'sortby opts stdsort))
+        (doempty (assoc-get 'empty opts #f)))
+    (if (or doempty (has-value tree))
+        (callback path (get-key tree) (value tree)))
+    (for-each
+     (lambda (p)
+       (tree-walk (cdr p) `(,@path ,(car p)) callback `(sort . ,dosort) `(sortby . ,sortby) `(empty . ,doempty)))
+     (if dosort
+         (sort (hash-table->alist (children tree)) sortby)
+         (hash-table->alist (children tree)) ))
+    ))
+
+; walk the tree and call callback for every node in sub-tree at path
+(define-method (tree-walk-branch (tree <dynamic-tree>) (path <list>) (callback <procedure>) . opts)
+  (let ((dosort (assoc-get 'sort opts))
+        (sortby (assoc-get 'sortby opts stdsort))
+        (doempty (assoc-get 'empty opts))
+        (ctrees (tree-get-all-trees tree path)))
+    (for-each
+     (lambda (ctree)
+       (tree-walk ctree path callback `(sort . ,dosort) `(sortby . ,sortby) `(empty . ,doempty)))
+     ctrees)
+    ))
+
+;;; END dynamic-tree
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define-public editionID
   (define-scheme-function (inherit path)((boolean? #t) list?)
@@ -65,7 +235,7 @@
 ; convert to a moment
 (define (short-mom->moment m)
   (cond
-   ((integer? m)(ly:make-moment m/4))
+   ((integer? m)(ly:make-moment (/ m 4)))
    ((fraction? m)(ly:make-moment (car m) (cdr m)))
    ((rational? m)(ly:make-moment m))
    ((ly:moment? m) m)
@@ -152,7 +322,7 @@
       (let ((parent-context (ly:context-find context (get-context prop))))
         (if (ly:context? parent-context) (set! context parent-context))))
   (set-previous! prop (ly:context-property context (get-symbol prop)))
-  (ly:message "~A" prop)
+  ;(ly:message "~A" prop)
   (ly:context-unset-property context (get-symbol prop))
   )
 (export do-propunset)
@@ -239,7 +409,7 @@
 ; store active edition-targets
 (define edition-targets '())
 ; store mods in a tree - to be accessed by path
-(define mod-tree (tree-create 'edition-mods))
+(define mod-tree (tree-create-dynamic 'edition-mods))
 
 ; add/activate edition-target
 (define-public (add-edition edition-target)
@@ -267,110 +437,115 @@
   (define-scheme-function ()()
     (get-edition-list)))
 
+(define (for-some-music-with-elements-callback stop? music)
+  "Like @var{for-some-music}, but also processes @var{elements-callback},
+  which is used by TimeSignatureMusic, SequentialMusic, and a few others"
+  (let loop ((music music))
+    (if (not (stop? music))
+        (let ((callback (ly:music-property music 'elements-callback)))
+          (if (procedure? callback)
+              (for-each loop (callback music))
+              (begin
+               (let ((elt (ly:music-property music 'element)))
+                 (if (ly:music? elt)
+                     (loop elt)))
+               (for-each loop (ly:music-property music 'elements))
+               (for-each loop (ly:music-property music 'articulations))
+               ))))))
+
 ; collect mods, accepted by the engraver, from a music expression
 ; TODO should mods be separated by engraver-slot? (e.g. start-timestep - process-music - acknowledger - listener)
 (define (collect-mods music context)
   (let ((collected-mods '()))
-    (for-some-music
+    (for-some-music-with-elements-callback
      (lambda (m)
-       (cond
-        ; specified context like in \set Timing.whichBar = "||"
-        ((eq? 'ContextSpeccedMusic (ly:music-property m 'name))
-         (let* ((ct (ly:music-property m 'context-type))
-                (elm (ly:music-property m 'element)))
-           (if (eq? 'Bottom ct)
-               #f
-               (begin
-                (set! collected-mods (append collected-mods (collect-mods elm ct)))
-                #t)
-               )
-           ))
+       (let ((music-name (ly:music-property m 'name)))
+         ;(if (ly:duration? (ly:music-property m 'duration))
+         ;    (ly:music-warning music "Music unsuitable for edition mod"))
+         (cond
+          ; specified context like in \set Timing.whichBar = "||"
+          ((eq? 'ContextSpeccedMusic music-name)
+           (let* ((ct (ly:music-property m 'context-type))
+                  (elm (ly:music-property m 'element)))
+             (if (eq? 'Bottom ct)
+                 #f
+                 (begin
+                  (set! collected-mods (append collected-mods (collect-mods elm ct)))
+                  #t)
+                 )
+             ))
 
-        ; \override Grob.property =
-        ((eq? 'OverrideProperty (ly:music-property m 'name))
-         (let* ((once (ly:music-property m 'once #f))
-                (grob (ly:music-property m 'symbol))
-                (prop (ly:music-property m 'grob-property))
-                (prop (if (symbol? prop)
-                          prop
-                          (car (ly:music-property m 'grob-property-path))))
-                (value (ly:music-property m 'grob-value))
-                (mod (make <override> #:once once #:grob grob #:prop prop #:value value #:context context)))
-           ; (ly:message "mod ~A" mod)
-           (set! collected-mods `(,@collected-mods ,mod)) ; alternative (cons mod collected-mods)
-           #t
-           ))
-        ; \revert ...
-        ((eq? 'RevertProperty (ly:music-property m 'name))
-         (let* ((grob (ly:music-property m 'symbol))
-                (prop (ly:music-property m 'grob-property))
-                (prop (if (symbol? prop)
-                          prop
-                          (car (ly:music-property m 'grob-property-path))))
-                (mod (make <override> #:once #f #:revert #t #:grob grob #:prop prop #:value #f #:context context)))
-           (set! collected-mods `(,@collected-mods ,mod))
-           #t
-           ))
-        ; \set property = ...
-        ((eq? 'PropertySet (ly:music-property m 'name))
-         (let* ((once (ly:music-property m 'once #f))
-                (symbol (ly:music-property m 'symbol))
-                (value (ly:music-property m 'value))
-                (mod (make <propset> #:once once #:symbol symbol #:value value #:context context)))
-           (set! collected-mods `(,@collected-mods ,mod))
-           #t
-           ))
+          ; \override Grob.property =
+          ((eq? 'OverrideProperty music-name)
+           (let* ((once (ly:music-property m 'once #f))
+                  (grob (ly:music-property m 'symbol))
+                  (prop (ly:music-property m 'grob-property))
+                  (prop (if (symbol? prop)
+                            prop
+                            (car (ly:music-property m 'grob-property-path))))
+                  (value (ly:music-property m 'grob-value))
+                  (mod (make <override> #:once once #:grob grob #:prop prop #:value value #:context context)))
+             ; (ly:message "mod ~A" mod)
+             (set! collected-mods `(,@collected-mods ,mod)) ; alternative (cons mod collected-mods)
+             #t
+             ))
+          ; \revert ...
+          ((eq? 'RevertProperty music-name)
+           (let* ((grob (ly:music-property m 'symbol))
+                  (prop (ly:music-property m 'grob-property))
+                  (prop (if (symbol? prop)
+                            prop
+                            (car (ly:music-property m 'grob-property-path))))
+                  (mod (make <override> #:once #f #:revert #t #:grob grob #:prop prop #:value #f #:context context)))
+             (set! collected-mods `(,@collected-mods ,mod))
+             #t
+             ))
+          ; \set property = ...
+          ((eq? 'PropertySet music-name)
+           (let* ((once (ly:music-property m 'once #f))
+                  (symbol (ly:music-property m 'symbol))
+                  (value (ly:music-property m 'value))
+                  (mod (make <propset> #:once once #:symbol symbol #:value value #:context context)))
+             (set! collected-mods `(,@collected-mods ,mod))
+             #t
+             ))
 
-        ; \unset property = ...
-        ((eq? 'PropertyUnset (ly:music-property m 'name))
-         (let* ((once (ly:music-property m 'once #f))
-                (symbol (ly:music-property m 'symbol))
-                (mod (make <propunset> #:once once #:symbol symbol #:context context)))
-           (set! collected-mods `(,@collected-mods ,mod))
-           #t
-           ))
+          ; \unset property = ...
+          ((eq? 'PropertyUnset music-name)
+           (let* ((once (ly:music-property m 'once #f))
+                  (symbol (ly:music-property m 'symbol))
+                  (mod (make <propunset> #:once once #:symbol symbol #:context context)))
+             (set! collected-mods `(,@collected-mods ,mod))
+             #t
+             ))
 
-        ; \applyContext ...
-        ((eq? 'ApplyContext (ly:music-property m 'name))
-         (let* ((proc (ly:music-property m 'procedure))
-                (mod (make <apply-context> #:proc proc)))
-           (set! collected-mods `(,@collected-mods ,mod))
-           #t
-           ))
+          ; \applyContext ...
+          ((eq? 'ApplyContext music-name)
+           (let* ((proc (ly:music-property m 'procedure))
+                  (mod (make <apply-context> #:proc proc)))
+             (set! collected-mods `(,@collected-mods ,mod))
+             #t
+             ))
 
-        ; Breaks and applyOutput
-        ((memq (ly:music-property m 'name) '(LineBreakEvent PageBreakEvent PageTurnEvent ApplyOutputEvent))
-         (set! collected-mods `(,@collected-mods ,m))
-         #t
-         )
-        ; TextScript and Mark
-        ((memq (ly:music-property m 'name) '(TextScriptEvent MarkEvent))
-         (set! collected-mods `(,@collected-mods ,m))
-         #t
-         )
-        ; KeySignature
-        ((memq (ly:music-property m 'name) '(KeyChangeEvent))
-         (set! collected-mods `(,@collected-mods ,m))
-         #t
-         )
-        ; Extender, Hyphen
-        ((memq (ly:music-property m 'name) '(HyphenEvent ExtenderEvent))
-         (set! collected-mods `(,@collected-mods ,m))
-         #t
-         )
-        ; Beam, Slur, Tie
-        ((memq (ly:music-property m 'name) '(BeamEvent SlurEvent PhrasingSlurEvent TieEvent))
-         (set! collected-mods `(,@collected-mods ,m))
-         #t
-         )
-        ; Dynamics
-        ((memq (ly:music-property m 'name) '(AbsoluteDynamicEvent CrescendoEvent DecrescendoEvent))
-         (set! collected-mods `(,@collected-mods ,m))
-         #t
-         )
+          ; TimeSignature
+          ((memq music-name '(TimeSignatureMusic))
+           ;(set! collected-mods `(,@collected-mods ,m))
+           (let ((callback (ly:music-property m 'elements-callback)))
+             (if (procedure? callback)
+                 (for-each (lambda (m) (collect-mods m context)) (callback m)))
+             #f))
 
-        (else #f) ; go ahead ...
-        )) music)
+          ; any other
+          ((memq music-name
+             (filter
+              (lambda (e)
+                (not (memq e '(SequentialMusic SimultaneousMusic EventChord))))
+              (map car music-descriptions)))
+           (set! collected-mods `(,@collected-mods ,m))
+           #t)
+
+          (else #f) ; go ahead ...
+          ))) music)
     collected-mods))
 
 (define (create-mod-path edition-target measure moment context-edition-id)
@@ -385,8 +560,58 @@
   (let* ((mod-path (create-mod-path edition-target measure moment context-edition-id))
          (tmods (tree-get mod-tree mod-path))
          (tmods (if (list? tmods) tmods '())))
+    (define (wildcard2regex in)
+      (let ((regex-string
+             (list->string
+              `(#\^
+                ,@(apply append
+                    (map
+                     (lambda (c)
+                       (cond
+                        ((eq? c #\?) (list #\.))
+                        ((eq? c #\*) (list #\. #\*))
+                        (else (list c))
+                        )) in))
+                #\$))))
+        (regex-match regex-string)
+        ))
+    (define (regex-match in)
+      (let ((regex (make-regexp in regexp/icase)))
+        (lambda (s)
+          ;(ly:message "/~A/: ~A" in s)
+          (regexp-exec regex
+            (cond
+             ((string? s) s)
+             ((symbol? s) (symbol->string s))
+             (else (format "~A" s))
+             )))
+        ))
+    ; fetch procedures from path
+    ; TODO build procedures from wildcard string
+    (define (explode-mod-path mod-path)
+      (if (symbol? mod-path)
+          (let* ((mod-string (symbol->string mod-path))
+                 (mod-cl (string->list mod-string)))
+            (cond
+             ((and
+               (eq? #\{ (first mod-cl))
+               (eq? #\} (last mod-cl))
+               ) (wildcard2regex (list-tail (list-head mod-cl (1- (length mod-cl))) 1) ))
+             ((and
+               (eq? #\/ (first mod-cl))
+               (eq? #\/ (last mod-cl))
+               ) (regex-match (substring mod-string 1 (1- (string-length mod-string)))))
+             ((and
+               (eq? #\< (first mod-cl))
+               (eq? #\> (last mod-cl)))
+              (let* ((proc-name (string->symbol (substring mod-string 1 (1- (string-length mod-string)))))
+                     (proc (ly:parser-lookup proc-name)))
+                (if (procedure? proc) proc mod-path)))
+             (else mod-path)))
+          mod-path
+          ))
     ; (ly:message "mods ~A" mods)
-    (tree-set! mod-tree mod-path (append tmods mods))
+    (tree-set! mod-tree (map explode-mod-path mod-path) (append tmods mods))
     ))
 ; predicate for music or context-mod
 (define-public (music-or-context-mod? v) (or (ly:music? v)(ly:context-mod? v)))
@@ -406,6 +631,8 @@
    (edition-target context-edition-id mods mom-list)
    (symbol? list? ly:music? imom-list?)
    (edition-mod-list edition-target context-edition-id mods mom-list)))
+
+; TODO development1.ly Start/Stop/Add-ModList
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; The edition-engraver
@@ -438,21 +665,74 @@
          (context-mods #f)
          (once-mods '())
          (start-translation-timestep-moment #f)
+         (track-mod-move #f)
          )
 
     ; log slot calls
     (define (log-slot slot) ; TODO: option verbose? oll logging function?
       (if (and (eq? (ly:context-property-where-defined context 'edition-engraver-log) context)
                (eq? #t (ly:context-property context 'edition-engraver-log #f)))
-          (ly:message "edition-engraver ~A ~A = \"~A\" : ~A @ ~A" context-edition-id context-name (if (symbol? context-id) (symbol->string context-id) "") slot (ly:context-current-moment context))))
+          (ly:message "edition-engraver ~A ~A = \"~A\" : ~A @ ~A (~A@~A)"
+            context-edition-id
+            context-name
+            (if (symbol? context-id) (symbol->string context-id) "")
+            slot
+            (ly:context-current-moment context)
+            (ly:context-property context 'currentBarNumber)
+            (ly:context-property context 'measurePosition)
+            )))
 
     ; find mods for the current time-spec
     (define (find-mods)
-      (let* (;(moment (ly:context-current-moment context))
-              (measure (ly:context-property context 'currentBarNumber))
-              (measurePos (ly:context-property context 'measurePosition))
-              (current-mods (tree-get context-mods (list measure measurePos))))
+      (log-slot "find-mods")
+      (let* ((moment (ly:context-current-moment context))
+             (timing (ly:context-find context 'Timing))
+             (measure (ly:context-property timing 'currentBarNumber))
+             (measurePos (ly:context-property timing 'measurePosition))
+             (current-mods (tree-get context-mods (list measure measurePos))))
+        
         (if (list? current-mods) current-mods '())
+        
+        ))
+    (define (propagate-mods)
+      (log-slot "propagate-mods")
+      (let* ((moment (ly:context-current-moment context))
+             (timing (ly:context-find context 'Timing))
+             (measure (ly:context-property timing 'currentBarNumber))
+             (measurePos (ly:context-property timing 'measurePosition))
+             (measure-length (ly:context-property timing 'measureLength))
+             (positions (tree-get-keys context-mods (list measure))))
+        ; propagate mods into the next measure, if the moment exceeds measure-length
+        ; TODO this works as long there are no cadenza parts! (look for Timing.timing = #f)
+        (if (and (list? positions) ; do we have any mods in this measure?
+                 (or (not (integer? track-mod-move)) ; do it once per measure
+                     (not (= track-mod-move measure))
+                     ))
+            (begin
+             (for-each
+              (lambda (pos)
+                (let ((omeasure (1+ measure))
+                      (opos (ly:moment-sub pos measure-length))
+                      (omods (tree-get-tree context-mods (list measure pos))))
+                  (tree-walk omods (list measure pos)
+                    (lambda (path nkey value)
+                      (let* ((ospot (list omeasure opos))
+                             (omods (tree-get context-mods ospot)))
+                        ; TODO format message
+                        (ly:message "~A (~A): ~A ---> ~A" context-edition-id context-name path ospot)
+                        (if (not (list? omods)) (set! omods '()))
+                        (tree-set! context-mods ospot (append omods value))
+                        (tree-unset! context-mods path)
+                        )))
+                  ))
+              (filter
+               (lambda (pos)
+                 (and (ly:moment? pos)
+                      (or (equal? pos measure-length)
+                          (ly:moment<? measure-length pos))))
+               positions)
+              ))
+            (set! track-mod-move measure))
         ))
 
     (define (broadcast-music mod clsevent)
@@ -468,49 +748,42 @@
               (ly:moment<? start-translation-timestep-moment (ly:context-now context)))
           (for-each
            (lambda (mod)
-             (cond
-              ((override? mod)
-               (if (is-revert mod)
-                   (do-revert context mod)
-                   (do-override context mod))
-               ; if it is once, add to once-list
-               (if (is-once mod) (set! once-mods (cons mod once-mods)))
-               )
-              ((propset? mod)
-               (do-propset context mod)
-               (if (is-once mod) (set! once-mods (cons mod once-mods)))
-               )
-              ((propunset? mod)
-               (do-propunset context mod)
-               (if (is-once mod) (set! once-mods (cons mod once-mods)))
-               )
-              ((apply-context? mod) (do-apply context mod))
-              ((and (ly:music? mod)(eq? 'KeyChangeEvent (ly:music-property mod 'name)))
-               (broadcast-music mod 'key-change-event))
-              ((and (ly:music? mod)(eq? 'ExtenderEvent (ly:music-property mod 'name)))
-               (broadcast-music mod 'extender-event))
-              ((and (ly:music? mod)(eq? 'HyphenEvent (ly:music-property mod 'name)))
-               (broadcast-music mod 'hyphen-event))
-              ((and (ly:music? mod)(eq? 'BeamEvent (ly:music-property mod 'name)))
-               (broadcast-music mod 'beam-event))
-              ((and (ly:music? mod)(eq? 'SlurEvent (ly:music-property mod 'name)))
-               (broadcast-music mod 'slur-event))
-              ((and (ly:music? mod)(eq? 'SlurEvent (ly:music-property mod 'name)))
-               (broadcast-music mod 'slur-event))
-              ((and (ly:music? mod)(eq? 'PhrasingSlurEvent (ly:music-property mod 'name)))
-               (broadcast-music mod 'phrasing-slur-event))
-              ((and (ly:music? mod)(eq? 'TieEvent (ly:music-property mod 'name)))
-               (broadcast-music mod 'tie-event))
-              ((and (ly:music? mod)(eq? 'AbsoluteDynamicEvent (ly:music-property mod 'name)))
-               (broadcast-music mod 'absolute-dynamic-event))
-              ((and (ly:music? mod)(eq? 'CrescendoEvent (ly:music-property mod 'name)))
-               (broadcast-music mod 'crescendo-event))
-              ((and (ly:music? mod)(eq? 'DecrescendoEvent (ly:music-property mod 'name)))
-               (broadcast-music mod 'decrescendo-event))
-              ;(AbsoluteDynamicEvent CrescendoEvent DecrescendoEvent)
-              ((ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
-              )
-             ) (find-mods)))
+             (let ((mod-name (if (ly:music? mod) (ly:music-property mod 'name))))
+               (cond
+                ((override? mod)
+                 (if (is-revert mod)
+                     (do-revert context mod)
+                     (do-override context mod))
+                 ; if it is once, add to once-list
+                 (if (is-once mod) (set! once-mods (cons mod once-mods)))
+                 )
+                ((propset? mod)
+                 (do-propset context mod)
+                 (if (is-once mod) (set! once-mods (cons mod once-mods)))
+                 )
+                ((propunset? mod)
+                 (do-propunset context mod)
+                 (if (is-once mod) (set! once-mods (cons mod once-mods)))
+                 )
+
+                ((apply-context? mod) (do-apply context mod))
+                ((and (ly:music? mod)(eq? 'CrescendoEvent mod-name))
+                 (broadcast-music mod 'crescendo-event))
+                ((and (ly:music? mod)(eq? 'DecrescendoEvent mod-name))
+                 (broadcast-music mod 'decrescendo-event))
+
+                ((and (ly:music? mod)
+                      (not (memq mod-name '(TextScriptEvent)))
+                      (memq mod-name (map car music-descriptions)))
+                 ;(ly:message "trying ~A" mod-name)
+                 (ly:broadcast (ly:context-event-source context)
+                   (ly:make-stream-event
+                    (ly:assoc-get 'types (ly:assoc-get mod-name music-descriptions '()) '())
+                    (ly:music-mutable-properties mod)))
+                 )
+
+                ((ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
+                ))) (find-mods)))
       (set! start-translation-timestep-moment #f)
       )
 
@@ -518,6 +791,7 @@
     ;(ly:message "~A ~A" (ly:context-id context) context-id)
     `( ; TODO slots: listeners, acknowledgers, end-acknowledgers, process-acknowledged
 
+       (must-be-last . #t)
        ; initialize engraver with its own id
        (initialize .
          ,(lambda (trans)
@@ -567,20 +841,21 @@
             (for-each
              (lambda (context-edition-sid)
                ;(ly:message "~A" context-edition-sid)
-               (let ((mtree (tree-get-tree mod-tree context-edition-sid)))
-                 (if (tree? mtree)
-                     (tree-walk mtree '()
-                       (lambda (path k val)
-                         (let ((plen (length path)))
-                           (if (and (= plen 3)(list? val)
-                                    (integer? (list-ref path 0))
-                                    (member (list-ref path 2) edition-targets))
-                               (let* ((subpath (list (list-ref path 0)(list-ref path 1)))
-                                      (submods (tree-get context-mods subpath)))
-                                 (tree-set! context-mods subpath
-                                   (if (list? submods) (append submods val) val))
-                                 ))))
-                       ))))
+               (let ((mtrees (tree-get-all-trees mod-tree context-edition-sid)))
+                 (for-each
+                  (lambda (mtree)
+                    (tree-walk mtree '()
+                      (lambda (path k val)
+                        (let ((plen (length path)))
+                          (if (and (= plen 3)(list? val)
+                                   (integer? (list-ref path 0))
+                                   (member (list-ref path 2) edition-targets))
+                              (let* ((subpath (list (list-ref path 0)(list-ref path 1)))
+                                     (submods (tree-get context-mods subpath)))
+                                (tree-set! context-mods subpath
+                                  (if (list? submods) (append submods val) val))
+                                ))))
+                      )) mtrees)))
              `((,@context-edition-id ,context-name)
                ,@(if context-id `(
                                    (,@context-edition-id ,context-id)
@@ -592,9 +867,17 @@
             (log-slot "initialize")
             ; if the now-moment is greater than 0, this is an instantly created context,
             ; so we need to call start-translation-timestep here.
-            (let ((now (ly:context-now context)))
-              (if (ly:moment<? (ly:make-moment 0/4) now)
-                  (start-translation-timestep trans))
+            (let ((now (ly:context-now context))
+                  (partial (ly:context-property context 'measurePosition)))
+              (if (or
+                   ; start-translation-timestep is not called for instant Voices
+                   (ly:moment<? (ly:make-moment 0/4) now)
+                   ; start-translation-timestep is not called on upbeats!
+                   (and (ly:moment? partial)(< (ly:moment-main partial) 0)))
+                  (begin
+                   (log-slot "initialize->start-translation-timestep")
+                   (start-translation-timestep trans)
+                   ))
               (set! start-translation-timestep-moment now))
             ))
 
@@ -625,6 +908,8 @@
        (stop-translation-timestep .
          ,(lambda (trans)
             (log-slot "stop-translation-timestep")
+            ; we have to propagate measure-length exceeding mods here to correctly follow time sigs
+            (propagate-mods)
             (for-each ; revert/reset once override/set
               (lambda (mod)
                 (cond
@@ -641,28 +926,20 @@
             (log-slot "process-music")
             (for-each ; revert/reset once override/set
               (lambda (mod)
-                (cond
-                 ((and (ly:music? mod) (eq? 'TextScriptEvent (ly:music-property mod 'name)))
-                  (let ((grob (ly:engraver-make-grob trans 'TextScript (ly:make-stream-event '(event) `((origin . ,(ly:music-property mod 'origin))) )))
-                        (text (ly:music-property mod 'text))
-                        (direction (ly:music-property mod 'direction #f)))
-                    (ly:grob-set-property! grob 'text text)
-                    (if direction (ly:grob-set-property! grob 'direction direction))
-                    ))
-                 ((and (ly:music? mod) (eq? 'MarkEvent (ly:music-property mod 'name)))
-                  (let ((grob (ly:engraver-make-grob trans 'RehearsalMark (ly:make-stream-event '(event) `((origin . ,(ly:music-property mod 'origin))) )))
-                        (text (ly:music-property mod 'label)))
-                    (if (not (markup? text))
-                        (let ((rmi (ly:context-property context 'rehearsalMark))
-                              (rmf (ly:context-property context 'markFormatter)))
-                          (if (and (integer? rmi)(procedure? rmf))
-                              (let ((rmc (ly:context-property-where-defined context 'rehearsalMark)))
-                                (set! text (rmf rmi rmc))
-                                (ly:context-set-property! rmc 'rehearsalMark (+ 1 rmi))
-                                ))))
-                    (ly:grob-set-property! grob 'text text)
-                    ))
-                 ))
+                (let ((music-name (if (ly:music? mod) (ly:music-property mod 'name) #f)))
+                  (cond
+                   ((eq? 'TextScriptEvent music-name)
+                    (let ((grob (ly:engraver-make-grob trans 'TextScript
+                                  (ly:make-stream-event '(event)
+                                    `((origin . ,(ly:music-property mod 'origin))
+                                      (tweaks . ,(ly:music-property mod 'tweaks))
+                                      (music-cause . mod)))))
+                          (direction (ly:music-property mod 'direction #f))
+                          (text (ly:music-property mod 'text #f)))
+                      (ly:grob-set-property! grob 'text text)
+                      (if direction (ly:grob-set-property! grob 'direction direction))
+                      ))
+                   )))
               (find-mods))
             ))
        ; finalize engraver
@@ -670,9 +947,10 @@
          ,(lambda (trans)
             ;(log-slot "finalize")
             (if (eq? 'Score context-name)
-                (let ((current-moment (ly:context-current-moment context))
-                      (current-measure (ly:context-property context 'currentBarNumber))
-                      (measure-position (ly:context-property context 'measurePosition)))
+                (let* ((timing (ly:context-find context 'Timing))
+                       (current-moment (ly:context-current-moment context))
+                       (current-measure (ly:context-property timing 'currentBarNumber))
+                       (measure-position (ly:context-property timing 'measurePosition)))
                   (ly:message "finalize ~A with ~A @ ~A / ~A-~A"
                     context-edition-id edition-targets current-moment current-measure measure-position)
                   ; TODO format <file>.edition.log

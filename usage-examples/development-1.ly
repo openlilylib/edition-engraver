@@ -30,8 +30,9 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \version "2.19.43"
-\include "edition-engraver.ily"
-\include "../oll-core/util/consist-to-contexts.ily"
+
+\include "oll-core/package.ily"
+\loadPackage edition-engraver
 
 % In this example we introduce a method to easily enter lists of mods
 % (the function provided here shall be moved to be available at once,
