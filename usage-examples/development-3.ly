@@ -34,43 +34,31 @@
 \include "oll-core/package.ily"
 \loadPackage edition-engraver
 
-\paper {
-  ragged-right = ##f
-}
-\layout {
-  \context {
-    \Score
-    \override BarNumber.break-visibility = #'#(#t #t #t)
-    barNumberVisibility = #all-bar-numbers-visible
-  }
-}
-
 \consistToContexts #edition-engraver Score.Staff.Voice.Lyrics
 
-% TODO add mod-marker function, do automatically track and color all modded elements?
-% display primary time-address
-editionMod =
-#(let ((short-mom? (@@ (edition-engraver engine) short-mom?)))
-   (define-void-function
-    (edition-target measure moment context-edition-id mods)
-    (symbol? integer? short-mom? list? music-or-context-mod?)
-    ((@ (edition-engraver engine) editionMod) edition-target measure moment context-edition-id
-      #{ ^\markup \box \fontsize #-4 $(format "~A ~A" measure moment) #})
-    ((@ (edition-engraver engine) editionMod) edition-target measure moment context-edition-id mods)
-    ))
+#(define (my-wild-card v) (eq? #\l (string-ref (format "~A" v) 0)))
 
 \addEdition test
-\editionMod test 1 #(ly:make-moment -1/4) Staff \once \override NoteHead.color = #red
-\editionMod test 1 4/4 Staff \once \override NoteHead.color = #red
-\editionMod test 1 9/4 Staff { \once \override NoteHead.color = #red <>^X }
-\editionMod test 2 0/4 Staff \once \override Stem.color = #green
 
-\editionMod test 3 8/4 Staff \once \override NoteHead.color = #green
-\editionMod test 5 4/4 Staff \once \override NoteHead.color = #green
+% path-elements surrounded by '<' and '>' denote a procedure
+\editionMod test 1 5/4 "<my-wild-card>".Voice \once \override NoteHead.color = #green
+% path elements enclosed in '/' are regular expressions
+\editionMod test 2 2/4 "/^.[eu].*$/".Voice \once \override NoteHead.color = #red
+\editionMod test 2 3/4 "/^[fl][au]$/".Voice \once \override NoteHead.color = #'(0.8 0.5 0.8)
+% path elements enclosed in curly brackets are wildcards
+\editionMod test 3 2/4 "{l*}".Voice \once \override NoteHead.color = #blue
+\editionMod test 3 3/4 "{*a}".Voice \once \override NoteHead.color = #'(0.5 0.5 1)
+\editionMod test 3 3/4 "{*u}".Voice \once \override NoteHead.color = #'(1 0.5 0.5)
 
-\editionMod test 6 3/4 Staff \bar "|."
+<<
+  \new Staff \with {
+    \editionID la
+  } \repeat unfold 3 \relative { c''4 b bes a }
+  \new Staff \with {
+    \editionID le
+  } \repeat unfold 3 \relative { c''4 b bes a }
+  \new Staff \with {
+    \editionID fu
+  } \repeat unfold 3 \relative { c''4 b bes a }
+>>
 
-\relative {
-  \partial 4 c'' | b bes b c | d e fis c | b bes b c |
-  \time 3/4 b4 bes a | as g ges | f a a |
-}
