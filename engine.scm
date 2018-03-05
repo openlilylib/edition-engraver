@@ -484,7 +484,7 @@ Path: ~a" path)))))
                             prop
                             (car (ly:music-property m 'grob-property-path))))
                   (value (ly:music-property m 'grob-value))
-                  (mod (make <override> #:once once #:grob grob #:prop prop #:value value #:context context)))
+                  (mod m)); (make <override> #:once once #:grob grob #:prop prop #:value value #:context context)))
              ; (ly:message "mod ~A" mod)
              (set! collected-mods `(,@collected-mods ,mod)) ; alternative (cons mod collected-mods)
              #t
@@ -775,7 +775,7 @@ Path: ~a" path)))))
                 ((and (ly:music? mod)
                       (not (memq mod-name '(TextScriptEvent)))
                       (memq mod-name (map car music-descriptions)))
-                 ;(ly:message "trying ~A" mod-name)
+                 (ly:message "trying ~A" (with-output-to-string (lambda () #{ \displayLilyMusic #mod #})))
                  (ly:broadcast (ly:context-event-source context)
                    (ly:make-stream-event
                     (ly:assoc-get 'types (ly:assoc-get mod-name music-descriptions '()) '())
