@@ -267,87 +267,6 @@ Path: ~a" path)))))
 
 ;%%%%%%%%%%%%% mod-classes
 
-; we need to store some mods as arbitrary objects, to allow once
-
-;;; property set as a class
-(define-class <propset> ()
-  (once #:init-value #t #:accessor is-once #:setter set-once! #:init-keyword #:once)
-  (symbol #:accessor get-symbol #:setter set-symbol! #:init-keyword #:symbol)
-  (value #:accessor get-value #:setter set-value! #:init-keyword #:value)
-  (previous #:accessor get-previous #:setter set-previous! #:init-value #f)
-  (context #:accessor get-context #:setter set-context! #:init-keyword #:context)
-  )
-
-; execute property set
-(define-method (do-propset context (prop <propset>))
-  (if (get-context prop)
-      (let ((parent-context (ly:context-find context (get-context prop))))
-        (if (ly:context? parent-context) (set! context parent-context))))
-  (set-previous! prop (ly:context-property context (get-symbol prop)))
-  (ly:context-set-property! context (get-symbol prop) (get-value prop))
-  )
-(export do-propset)
-
-; execute property reset
-(define-method (reset-prop context (prop <propset>))
-  (if (get-context prop)
-      (let ((parent-context (ly:context-find context (get-context prop))))
-        (if (ly:context? parent-context) (set! context parent-context))))
-  (ly:context-set-property! context (get-symbol prop) (get-previous prop))
-  )
-(export reset-prop)
-
-; propset predicate
-(define-public (propset? p)(is-a? p <propset>))
-; propset -> string
-(define-method (propset->string (ps <propset>))
-  (format "~A\\set ~A = ~A" (if (is-once ps) "\\once " "") (string-append (if (get-context ps) (format "~A." (get-context ps)) "") (format "~A" (get-symbol ps))) (get-value ps)))
-(export propset->string)
-; display propset
-(define-method (display (o <propset>) port) (display (propset->string o) port))
-
-
-
-;;; property set as a class
-(define-class <propunset> ()
-  (once #:init-value #t #:accessor is-once #:setter set-once! #:init-keyword #:once)
-  (symbol #:accessor get-symbol #:setter set-symbol! #:init-keyword #:symbol)
-  (previous #:accessor get-previous #:setter set-previous! #:init-value #f)
-  (context #:accessor get-context #:setter set-context! #:init-keyword #:context)
-  )
-
-; execute property set
-(define-method (do-propunset context (prop <propunset>))
-  (if (get-context prop)
-      (let ((parent-context (ly:context-find context (get-context prop))))
-        (if (ly:context? parent-context) (set! context parent-context))))
-  (set-previous! prop (ly:context-property context (get-symbol prop)))
-  ;(ly:message "~A" prop)
-  (ly:context-unset-property context (get-symbol prop))
-  )
-(export do-propunset)
-
-; execute property reset
-(define-method (reunset-prop context (prop <propunset>))
-  (if (get-context prop)
-      (let ((parent-context (ly:context-find context (get-context prop))))
-        (if (ly:context? parent-context) (set! context parent-context))))
-  (ly:context-set-property! context (get-symbol prop) (get-previous prop))
-  )
-(export reunset-prop)
-
-; propset predicate
-(define-public (propunset? p)(is-a? p <propunset>))
-; propset -> string
-(define-method (propunset->string (ps <propunset>))
-  (format "~A\\unset ~A" (if (is-once ps) "\\once " "")
-    (string-append (if (get-context ps) (format "~A." (get-context ps)) "") (format "~A" (get-symbol ps)))))
-(export propunset->string)
-; display propset
-(define-method (display (o <propunset>) port) (display (propunset->string o) port))
-
-
-
 ;;; apply-context as a class
 (define-class <apply-context> ()
   (proc #:accessor procedure #:setter set-procedure! #:init-keyword #:proc)
@@ -359,49 +278,6 @@ Path: ~a" path)))))
 (export do-apply)
 ; apply-context as a class
 (define-public (apply-context? a)(is-a? a <apply-context>))
-
-
-
-;;; override as a class
-; TODO: temporary override?
-; TODO: is this needed?
-(define-class <override> ()
-  (once #:init-value #t #:accessor is-once #:setter set-once! #:init-keyword #:once)
-  (revert #:init-value #f #:accessor is-revert #:setter set-revert! #:init-keyword #:revert)
-  (grob #:accessor get-grob #:setter set-grob! #:init-keyword #:grob)
-  (prop #:accessor get-prop #:setter set-prop! #:init-keyword #:prop)
-  (value #:accessor get-value #:setter set-value! #:init-keyword #:value)
-  (context #:accessor get-context #:setter set-context! #:init-keyword #:context)
-  )
-
-; override -> string
-(define-method (oop->string (o <override>))
-  (let* ((context-name (get-context o))
-         (context-sname (if context-name (format "~A." context-name) "")))
-    (if (is-revert o)
-        (string-append "\\revert " context-sname (format "~A " (get-grob o)) (format "#'~A" (get-prop o)))
-        (string-append (if (is-once o) "\\once " "") "\\override " context-sname (format "~A " (get-grob o)) (format "#'~A" (get-prop o)) " = " (format "~A" (get-value o)))
-        )))
-(export oop->string)
-; display override
-(define-method (display (o <override>) port) (display (oop->string o) port))
-; override predicate
-(define-public (override? o)(is-a? o <override>))
-
-; execute override
-(define-method (do-override context (mod <override>))
-  (if (get-context mod)
-      (let ((parent-context (ly:context-find context (get-context mod))))
-        (if (ly:context? parent-context) (set! context parent-context))))
-  (ly:context-pushpop-property context (get-grob mod) (get-prop mod) (get-value mod)))
-(export do-override)
-; revert override
-(define-method (do-revert context (mod <override>))
-  (if (get-context mod)
-      (let ((parent-context (ly:context-find context (get-context mod))))
-        (if (ly:context? parent-context) (set! context parent-context))))
-  (ly:context-pushpop-property context (get-grob mod) (get-prop mod)))
-(export do-revert)
 
 ;%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -496,7 +372,7 @@ Path: ~a" path)))))
              (set! collected-mods `(,@collected-mods ,m))
              #t)
 
-          ; \applyContext ...
+          ; \applyContext ... TODO origin
           ((eq? 'ApplyContext music-name)
            (let* ((proc (ly:music-property m 'procedure))
                   (mod (make <apply-context> #:proc proc)))
@@ -736,21 +612,6 @@ Path: ~a" path)))))
                (define (event-source context context-spec)
                  (ly:context-event-source (if (symbol? context-spec) (ly:context-find context context-spec) context)))
                (cond
-                ((override? mod)
-                 (if (is-revert mod)
-                     (do-revert context mod)
-                     (do-override context mod))
-                 ; if it is once, add to once-list
-                 (if (is-once mod) (set! once-mods (cons mod once-mods)))
-                 )
-                ((propset? mod)
-                 (do-propset context mod)
-                 (if (is-once mod) (set! once-mods (cons mod once-mods)))
-                 )
-                ((propunset? mod)
-                 (do-propunset context mod)
-                 (if (is-once mod) (set! once-mods (cons mod once-mods)))
-                 )
 
                 ((apply-context? mod) (do-apply context mod))
                 ((and (ly:music? mod)(eq? 'CrescendoEvent mod-name))

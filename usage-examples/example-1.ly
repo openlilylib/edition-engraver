@@ -55,6 +55,10 @@
 \editionMod test 5 0/4 sing.with.bach.along.Staff {
   \once \override KeySignature.color = #red
   \key f \major
+  \applyContext #(lambda (context) (ly:input-message (*location*) "@ ~A ~A ~A"
+                                     (ly:context-id context)
+                                     (ly:context-property context 'currentBarNumber)
+                                     (ly:context-property context 'measurePosition)))
 }
 \editionMod test 10 0/4 sing.with.bach.along.Staff \key g \major
 
