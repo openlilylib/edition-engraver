@@ -152,37 +152,37 @@ Path: ~a" path)))))
 
 ; get all children with procedure inside path
 (define-method (tree-get-all-trees (tree <tree>) (path <list>))
-   (if (= (length path) 0)
-       (list tree)
-       (let* ((ckey (car path))
-              (cpath (cdr path))
-              (childs (hash-map->list cons (children tree) ))
-              (child (hash-ref (children tree) ckey)))
+  (if (= (length path) 0)
+      (list tree)
+      (let* ((ckey (car path))
+             (cpath (cdr path))
+             (childs (hash-map->list cons (children tree) ))
+             (child (hash-ref (children tree) ckey)))
 
-         (set! childs (map (lambda (p) (cons (car p) (cdr p))) childs))
-         (set! childs
-               (cond
-                ((procedure? ckey)
-                 (filter (lambda (child) (ckey (car child))) childs))
-                ((is-a? child <tree>)
-                 (list (cons ckey child)))
-                (else
-                 (map
-                  (lambda (child)
-                    (cons ckey (cdr child)))
-                  (filter
-                   (lambda (p)
-                     (let* ((tree (cdr p))
-                            (tkey (get-key tree)))
-                       (and (procedure? tkey) (tkey ckey))
-                       )) childs))
-                 )))
-         (concatenate
-          (map
-           (lambda (child)
-             (tree-get-all-trees (cdr child) (cdr path)))
-           childs))
-         )))
+        (set! childs (map (lambda (p) (cons (car p) (cdr p))) childs))
+        (set! childs
+              (cond
+               ((procedure? ckey)
+                (filter (lambda (child) (ckey (car child))) childs))
+               ((is-a? child <tree>)
+                (list (cons ckey child)))
+               (else
+                (map
+                 (lambda (child)
+                   (cons ckey (cdr child)))
+                 (filter
+                  (lambda (p)
+                    (let* ((tree (cdr p))
+                           (tkey (get-key tree)))
+                      (and (procedure? tkey) (tkey ckey))
+                      )) childs))
+                )))
+        (concatenate
+         (map
+          (lambda (child)
+            (tree-get-all-trees (cdr child) (cdr path)))
+          childs))
+        )))
 ; get all children with procedure inside path
 (define-method (tree-get-all (tree <tree>) (path <list>))
   (map value (tree-get-all-trees tree path)))
@@ -690,9 +690,9 @@ Path: ~a" path)))))
              (measure (ly:context-property timing 'currentBarNumber))
              (measurePos (ly:context-property timing 'measurePosition))
              (current-mods (tree-get context-mods (list measure measurePos))))
-        
+
         (if (list? current-mods) current-mods '())
-        
+
         ))
     (define (propagate-mods)
       (log-slot "propagate-mods")
@@ -749,6 +749,13 @@ Path: ~a" path)))))
           (for-each
            (lambda (mod)
              (let ((mod-name (if (ly:music? mod) (ly:music-property mod 'name))))
+               (define (get-property-path m)
+                 (let ((grob-property-path (ly:music-property m 'grob-property-path))
+                       (eprop (ly:music-property m 'grob-property)))
+                   (if (symbol? eprop)
+                       (set! grob-property-path (list eprop)))
+                   grob-property-path
+                   ))
                (cond
                 ((override? mod)
                  (if (is-revert mod)
@@ -772,10 +779,32 @@ Path: ~a" path)))))
                 ((and (ly:music? mod)(eq? 'DecrescendoEvent mod-name))
                  (broadcast-music mod 'decrescendo-event))
 
+                ((and (ly:music? mod)(eq? 'OverrideProperty mod-name))
+                 (let ((evprops `(
+                                   (symbol . ,(ly:music-property mod 'symbol))
+                                   (property-path . ,(get-property-path mod))
+                                   (once . ,(ly:music-property mod 'once))
+                                   (value . ,(ly:music-property mod 'grob-value))
+                                   (origin . ,(ly:music-property mod 'origin))
+                                   )))
+                   (if (and (eq? #t (ly:music-property mod 'pop-first))
+                            (not (eq? #t (ly:music-property mod 'once))))
+                       (ly:broadcast (ly:context-event-source context)
+                         (ly:make-stream-event
+                          '(Revert StreamEvent)
+                          evprops)
+                         ))
+                   (ly:broadcast (ly:context-event-source context)
+                     (ly:make-stream-event
+                      '(Override StreamEvent)
+                      evprops)
+                     )))
+
+
                 ((and (ly:music? mod)
                       (not (memq mod-name '(TextScriptEvent)))
                       (memq mod-name (map car music-descriptions)))
-                 (ly:message "trying ~A" (with-output-to-string (lambda () #{ \displayLilyMusic #mod #})))
+                 ;(ly:message "trying ~A" (with-output-to-string (lambda () #{ \displayLilyMusic #mod #})))
                  (ly:broadcast (ly:context-event-source context)
                    (ly:make-stream-event
                     (ly:assoc-get 'types (ly:assoc-get mod-name music-descriptions '()) '())
