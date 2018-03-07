@@ -477,47 +477,24 @@ Path: ~a" path)))))
 
           ; \override Grob.property =
           ((eq? 'OverrideProperty music-name)
-           (let* ((once (ly:music-property m 'once #f))
-                  (grob (ly:music-property m 'symbol))
-                  (prop (ly:music-property m 'grob-property))
-                  (prop (if (symbol? prop)
-                            prop
-                            (car (ly:music-property m 'grob-property-path))))
-                  (value (ly:music-property m 'grob-value))
-                  (mod (make <override> #:once once #:grob grob #:prop prop #:value value #:context context)))
-             ; (ly:message "mod ~A" mod)
-             (set! collected-mods `(,@collected-mods ,mod)) ; alternative (cons mod collected-mods)
-             #t
-             ))
+             (ly:music-set-property! m 'ee:context-spec context)
+             (set! collected-mods `(,@collected-mods ,m))
+             #t)
           ; \revert ...
           ((eq? 'RevertProperty music-name)
-           (let* ((grob (ly:music-property m 'symbol))
-                  (prop (ly:music-property m 'grob-property))
-                  (prop (if (symbol? prop)
-                            prop
-                            (car (ly:music-property m 'grob-property-path))))
-                  (mod (make <override> #:once #f #:revert #t #:grob grob #:prop prop #:value #f #:context context)))
-             (set! collected-mods `(,@collected-mods ,mod))
-             #t
-             ))
+             (ly:music-set-property! m 'ee:context-spec context)
+             (set! collected-mods `(,@collected-mods ,m))
+             #t)
           ; \set property = ...
           ((eq? 'PropertySet music-name)
-           (let* ((once (ly:music-property m 'once #f))
-                  (symbol (ly:music-property m 'symbol))
-                  (value (ly:music-property m 'value))
-                  (mod (make <propset> #:once once #:symbol symbol #:value value #:context context)))
-             (set! collected-mods `(,@collected-mods ,mod))
-             #t
-             ))
-
+             (ly:music-set-property! m 'ee:context-spec context)
+             (set! collected-mods `(,@collected-mods ,m))
+             #t)
           ; \unset property = ...
           ((eq? 'PropertyUnset music-name)
-           (let* ((once (ly:music-property m 'once #f))
-                  (symbol (ly:music-property m 'symbol))
-                  (mod (make <propunset> #:once once #:symbol symbol #:context context)))
-             (set! collected-mods `(,@collected-mods ,mod))
-             #t
-             ))
+             (ly:music-set-property! m 'ee:context-spec context)
+             (set! collected-mods `(,@collected-mods ,m))
+             #t)
 
           ; \applyContext ...
           ((eq? 'ApplyContext music-name)
@@ -756,6 +733,8 @@ Path: ~a" path)))))
                        (set! grob-property-path (list eprop)))
                    grob-property-path
                    ))
+               (define (event-source context context-spec)
+                 (ly:context-event-source (if (symbol? context-spec) (ly:context-find context context-spec) context)))
                (cond
                 ((override? mod)
                  (if (is-revert mod)
@@ -779,8 +758,12 @@ Path: ~a" path)))))
                 ((and (ly:music? mod)(eq? 'DecrescendoEvent mod-name))
                  (broadcast-music mod 'decrescendo-event))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+                ; Override
                 ((and (ly:music? mod)(eq? 'OverrideProperty mod-name))
-                 (let ((evprops `(
+                 (let ((context-spec (ly:music-property mod 'ee:context-spec context))
+                       (evprops `(
                                    (symbol . ,(ly:music-property mod 'symbol))
                                    (property-path . ,(get-property-path mod))
                                    (once . ,(ly:music-property mod 'once))
@@ -789,16 +772,65 @@ Path: ~a" path)))))
                                    )))
                    (if (and (eq? #t (ly:music-property mod 'pop-first))
                             (not (eq? #t (ly:music-property mod 'once))))
-                       (ly:broadcast (ly:context-event-source context)
+                       (ly:broadcast (event-source context context-spec)
                          (ly:make-stream-event
                           '(Revert StreamEvent)
                           evprops)
                          ))
-                   (ly:broadcast (ly:context-event-source context)
+                   (ly:broadcast (event-source context context-spec)
                      (ly:make-stream-event
                       '(Override StreamEvent)
                       evprops)
                      )))
+
+                ; Revert
+                ((and (ly:music? mod)(eq? 'RevertProperty mod-name))
+                 (let ((context-spec (ly:music-property mod 'ee:context-spec context))
+                       (evprops `(
+                                   (symbol . ,(ly:music-property mod 'symbol))
+                                   (property-path . ,(get-property-path mod))
+                                   (once . ,(ly:music-property mod 'once))
+                                   (origin . ,(ly:music-property mod 'origin))
+                                   )))
+                   (ly:broadcast (event-source context context-spec)
+                     (ly:make-stream-event
+                      '(Revert StreamEvent)
+                      evprops)
+                     )))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+                ; set
+                ((and (ly:music? mod)(eq? 'PropertySet (ly:music-property mod 'name)))
+                 (let ((context-spec (ly:music-property mod 'ee:context-spec context))
+                       (evprops `(
+                                   (symbol . ,(ly:music-property mod 'symbol))
+                                   (once . ,(ly:music-property mod 'once))
+                                   (value . ,(ly:music-property mod 'value))
+                                   (origin . ,(ly:music-property mod 'origin))
+                                   )))
+                   (ly:broadcast (event-source context context-spec)
+                     (ly:make-stream-event
+                      '(SetProperty StreamEvent)
+                      evprops)
+                     )))
+
+                ; unset
+                ((and (ly:music? mod)(eq? 'PropertyUnset (ly:music-property mod 'name)))
+                 (let ((context-spec (ly:music-property mod 'ee:context-spec context))
+                       (evprops `(
+                                   (symbol . ,(ly:music-property mod 'symbol))
+                                   (once . ,(ly:music-property mod 'once))
+                                   (origin . ,(ly:music-property mod 'origin))
+                                   )))
+                   (ly:broadcast (event-source context context-spec)
+                     (ly:make-stream-event
+                      '(UnsetProperty StreamEvent)
+                      evprops)
+                     )))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
                 ((and (ly:music? mod)
