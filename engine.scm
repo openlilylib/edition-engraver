@@ -484,7 +484,7 @@ Path: ~a" path)))))
                             prop
                             (car (ly:music-property m 'grob-property-path))))
                   (value (ly:music-property m 'grob-value))
-                  (mod m)); (make <override> #:once once #:grob grob #:prop prop #:value value #:context context)))
+                  (mod (make <override> #:once once #:grob grob #:prop prop #:value value #:context context)))
              ; (ly:message "mod ~A" mod)
              (set! collected-mods `(,@collected-mods ,mod)) ; alternative (cons mod collected-mods)
              #t
