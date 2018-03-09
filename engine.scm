@@ -336,6 +336,13 @@ Path: ~a" path)))))
     (for-some-music-with-elements-callback
      (lambda (m)
        (let ((music-name (ly:music-property m 'name)))
+
+         (define (collect-mod m)
+           (let ((m (ly:music-deep-copy m)))
+             (ly:music-set-property! m 'origin (*location*))
+             (set! collected-mods `(,@collected-mods ,m))
+             ))
+
          ;(if (ly:duration? (ly:music-property m 'duration))
          ;    (ly:music-warning music "Music unsuitable for edition mod"))
          (cond
@@ -353,24 +360,24 @@ Path: ~a" path)))))
 
           ; \override Grob.property =
           ((eq? 'OverrideProperty music-name)
-             (ly:music-set-property! m 'ee:context-spec context)
-             (set! collected-mods `(,@collected-mods ,m))
-             #t)
+           (ly:music-set-property! m 'ee:context-spec context)
+           (collect-mod m)
+           #t)
           ; \revert ...
           ((eq? 'RevertProperty music-name)
-             (ly:music-set-property! m 'ee:context-spec context)
-             (set! collected-mods `(,@collected-mods ,m))
-             #t)
+           (ly:music-set-property! m 'ee:context-spec context)
+           (collect-mod m)
+           #t)
           ; \set property = ...
           ((eq? 'PropertySet music-name)
-             (ly:music-set-property! m 'ee:context-spec context)
-             (set! collected-mods `(,@collected-mods ,m))
-             #t)
+           (ly:music-set-property! m 'ee:context-spec context)
+           (collect-mod m)
+           #t)
           ; \unset property = ...
           ((eq? 'PropertyUnset music-name)
-             (ly:music-set-property! m 'ee:context-spec context)
-             (set! collected-mods `(,@collected-mods ,m))
-             #t)
+           (ly:music-set-property! m 'ee:context-spec context)
+           (collect-mod m)
+           #t)
 
           ; \applyContext ... TODO origin
           ((eq? 'ApplyContext music-name)
@@ -394,7 +401,7 @@ Path: ~a" path)))))
               (lambda (e)
                 (not (memq e '(SequentialMusic SimultaneousMusic EventChord))))
               (map car music-descriptions)))
-           (set! collected-mods `(,@collected-mods ,m))
+           (collect-mod m)
            #t)
 
           (else #f) ; go ahead ...
@@ -516,7 +523,6 @@ Path: ~a" path)))))
                 (string->symbol cid)
                 #f)))
          (context-mods #f)
-         (once-mods '())
          (start-translation-timestep-moment #f)
          (track-mod-move #f)
          )
@@ -803,6 +809,13 @@ Path: ~a" path)))))
               (set! start-translation-timestep-moment now))
             ))
 
+       ; TODO
+       (listeners
+        ((rest-event engraver event)
+         (ly:message "~A" (ly:event-property event 'class))
+         )
+        )
+
        ; paper columns --> breaks
        (acknowledgers ; TODO add acknowledgers from mods
          (paper-column-interface .
@@ -832,15 +845,6 @@ Path: ~a" path)))))
             (log-slot "stop-translation-timestep")
             ; we have to propagate measure-length exceeding mods here to correctly follow time sigs
             (propagate-mods)
-            (for-each ; revert/reset once override/set
-              (lambda (mod)
-                (cond
-                 ((propset? mod) (reset-prop context mod))
-                 ((override? mod) (do-revert context mod))
-                 ((ly:context-mod? mod) (ly:context-mod-apply! context mod))
-                 ))
-              once-mods)
-            (set! once-mods '()) ; reset once-mods
             ))
        ; process music
        (process-music .
