@@ -525,6 +525,7 @@ Path: ~a" path)))))
          (context-mods #f)
          (start-translation-timestep-moment #f)
          (track-mod-move #f)
+         (mod-events #f)
          )
 
     ; log slot calls
@@ -594,6 +595,8 @@ Path: ~a" path)))))
             (set! track-mod-move measure))
         ))
 
+    (define (event-source context context-spec)
+      (ly:context-event-source (if (symbol? context-spec) (ly:context-find context context-spec) context)))
     (define (broadcast-music mod clsevent)
       (ly:broadcast (ly:context-event-source context)
         (ly:make-stream-event
@@ -603,6 +606,7 @@ Path: ~a" path)))))
     ; define start-translation-timestep to use it in initialize if needed
     (define (start-translation-timestep trans)
       (log-slot "start-translation-timestep")
+      (set! mod-events (tree-create 'mod-events))
       (if (or (not start-translation-timestep-moment)
               (ly:moment<? start-translation-timestep-moment (ly:context-now context)))
           (for-each
@@ -615,8 +619,6 @@ Path: ~a" path)))))
                        (set! grob-property-path (list eprop)))
                    grob-property-path
                    ))
-               (define (event-source context context-spec)
-                 (ly:context-event-source (if (symbol? context-spec) (ly:context-find context context-spec) context)))
                (cond
 
                 ((apply-context? mod) (do-apply context mod))
@@ -629,14 +631,15 @@ Path: ~a" path)))))
 
                 ; Override
                 ((and (ly:music? mod)(eq? 'OverrideProperty mod-name))
-                 (let ((context-spec (ly:music-property mod 'ee:context-spec context))
-                       (evprops `(
-                                   (symbol . ,(ly:music-property mod 'symbol))
-                                   (property-path . ,(get-property-path mod))
-                                   (once . ,(ly:music-property mod 'once))
-                                   (value . ,(ly:music-property mod 'grob-value))
-                                   (origin . ,(ly:music-property mod 'origin))
-                                   )))
+                 (let* ((context-spec (ly:music-property mod 'ee:context-spec context))
+                        (evprops `(
+                                    (symbol . ,(ly:music-property mod 'symbol))
+                                    (property-path . ,(get-property-path mod))
+                                    (once . ,(ly:music-property mod 'once))
+                                    (value . ,(ly:music-property mod 'grob-value))
+                                    (origin . ,(ly:music-property mod 'origin))
+                                    (ee:context-spec . ,context-spec)
+                                    )))
                    (if (and (eq? #t (ly:music-property mod 'pop-first))
                             (not (eq? #t (ly:music-property mod 'once))))
                        (ly:broadcast (event-source context context-spec)
@@ -647,53 +650,56 @@ Path: ~a" path)))))
                    (ly:broadcast (event-source context context-spec)
                      (ly:make-stream-event
                       '(Override StreamEvent)
-                      evprops)
+                      (assoc-set! evprops 'ee:mod #t))
                      )))
 
                 ; Revert
                 ((and (ly:music? mod)(eq? 'RevertProperty mod-name))
-                 (let ((context-spec (ly:music-property mod 'ee:context-spec context))
-                       (evprops `(
-                                   (symbol . ,(ly:music-property mod 'symbol))
-                                   (property-path . ,(get-property-path mod))
-                                   (once . ,(ly:music-property mod 'once))
-                                   (origin . ,(ly:music-property mod 'origin))
-                                   )))
+                 (let* ((context-spec (ly:music-property mod 'ee:context-spec context))
+                        (evprops `(
+                                    (symbol . ,(ly:music-property mod 'symbol))
+                                    (property-path . ,(get-property-path mod))
+                                    (once . ,(ly:music-property mod 'once))
+                                    (origin . ,(ly:music-property mod 'origin))
+                                    (ee:context-spec . ,context-spec)
+                                    )))
                    (ly:broadcast (event-source context context-spec)
                      (ly:make-stream-event
                       '(Revert StreamEvent)
-                      evprops)
+                      (assoc-set! evprops 'ee:mod #t))
                      )))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
                 ; set
                 ((and (ly:music? mod)(eq? 'PropertySet (ly:music-property mod 'name)))
-                 (let ((context-spec (ly:music-property mod 'ee:context-spec context))
-                       (evprops `(
-                                   (symbol . ,(ly:music-property mod 'symbol))
-                                   (once . ,(ly:music-property mod 'once))
-                                   (value . ,(ly:music-property mod 'value))
-                                   (origin . ,(ly:music-property mod 'origin))
-                                   )))
+                 (let* ((context-spec (ly:music-property mod 'ee:context-spec context))
+                        (evprops `(
+                                    (symbol . ,(ly:music-property mod 'symbol))
+                                    (once . ,(ly:music-property mod 'once))
+                                    (value . ,(ly:music-property mod 'value))
+                                    (origin . ,(ly:music-property mod 'origin))
+                                    (ee:context-spec . ,context-spec)
+                                    )))
                    (ly:broadcast (event-source context context-spec)
                      (ly:make-stream-event
                       '(SetProperty StreamEvent)
-                      evprops)
+                      (assoc-set! evprops 'ee:mod #t))
                      )))
 
                 ; unset
                 ((and (ly:music? mod)(eq? 'PropertyUnset (ly:music-property mod 'name)))
-                 (let ((context-spec (ly:music-property mod 'ee:context-spec context))
-                       (evprops `(
-                                   (symbol . ,(ly:music-property mod 'symbol))
-                                   (once . ,(ly:music-property mod 'once))
-                                   (origin . ,(ly:music-property mod 'origin))
-                                   )))
+                 (let* ((context-spec (ly:music-property mod 'ee:context-spec context))
+                        (evprops `(
+                                    (symbol . ,(ly:music-property mod 'symbol))
+                                    (once . ,(ly:music-property mod 'once))
+                                    (origin . ,(ly:music-property mod 'origin))
+                                    (ee:context-spec . ,context-spec)
+                                    )))
                    (ly:broadcast (event-source context context-spec)
                      (ly:make-stream-event
                       '(UnsetProperty StreamEvent)
-                      evprops)
+                      (assoc-set! evprops 'ee:mod #t))
                      )))
 
 
@@ -717,7 +723,7 @@ Path: ~a" path)))))
 
 
     ;(ly:message "~A ~A" (ly:context-id context) context-id)
-    `( ; TODO slots: listeners, acknowledgers, end-acknowledgers, process-acknowledged
+    `( ; TODO slots: end-acknowledgers, process-acknowledged
 
        (must-be-last . #t)
        ; initialize engraver with its own id
@@ -809,11 +815,22 @@ Path: ~a" path)))))
               (set! start-translation-timestep-moment now))
             ))
 
-       ; TODO
        (listeners
-        ((rest-event engraver event)
-         (ly:message "~A" (ly:event-property event 'class))
-         )
+        (Override .
+          ,(lambda (engraver event)
+             (let ((ismod (ly:event-property event 'ee:mod))
+                   (once (ly:event-property event 'once))
+                   (path `(,(ly:event-property event 'symbol) ,@(ly:event-property event 'property-path))))
+               (if (eq? #t ismod)
+                   (tree-set! mod-events path event)
+                   (let ((mod-event (tree-get mod-events path)))
+                     (if (ly:stream-event? mod-event)
+                         (let ((context-spec (ly:event-property mod-event 'ee:context-spec)))
+                           (ly:input-warning (ly:event-property mod-event 'origin) "edition-engraver overridden by music! (~A)" path)
+                           ))
+                     ))
+               )))
+        ; TODO Revert, SetProperty, UnsetProperty
         )
 
        ; paper columns --> breaks
