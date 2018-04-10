@@ -525,7 +525,7 @@ Path: ~a" path)))))
          (context-mods #f)
          (start-translation-timestep-moment #f)
          (track-mod-move #f)
-         (mod-events #f)
+         (mod-events (tree-create 'mod-events))
          )
 
     ; log slot calls
