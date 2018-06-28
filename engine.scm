@@ -235,9 +235,8 @@ Path: ~a" path)))))
 ; convert to a moment
 (define (short-mom->moment m)
   (cond
-   ((integer? m)(ly:make-moment m))
+   ((number? m)(ly:make-moment (inexact->exact m)))
    ((fraction? m)(ly:make-moment (car m) (cdr m)))
-   ((rational? m)(ly:make-moment (inexact->exact m)))
    ((ly:moment? m) m)
    (else (ly:make-moment 0/4))))
 ; predicate for a pair of measure and short-mom
