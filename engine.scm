@@ -235,9 +235,8 @@ Path: ~a" path)))))
 ; convert to a moment
 (define (short-mom->moment m)
   (cond
-   ((integer? m)(ly:make-moment (/ m 1)))
+   ((number? m)(ly:make-moment m))
    ((fraction? m)(ly:make-moment (car m) (cdr m)))
-   ((rational? m)(ly:make-moment m))
    ((ly:moment? m) m)
    (else (ly:make-moment 0/4))))
 ; predicate for a pair of measure and short-mom
@@ -690,9 +689,9 @@ Path: ~a" path)))))
              (measure (ly:context-property timing 'currentBarNumber))
              (measurePos (ly:context-property timing 'measurePosition))
              (current-mods (tree-get context-mods (list measure measurePos))))
-        
+
         (if (list? current-mods) current-mods '())
-        
+
         ))
     (define (propagate-mods)
       (log-slot "propagate-mods")
