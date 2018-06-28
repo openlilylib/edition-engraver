@@ -236,7 +236,7 @@ Path: ~a" path)))))
 (define (short-mom->moment m)
   (cond
    ((number? m)(ly:make-moment (inexact->exact m)))
-   ((fraction? m)(ly:make-moment (car m) (cdr m)))
+   ((fraction? m)(ly:make-moment (/ (car m) (cdr m))))
    ((ly:moment? m) m)
    (else (ly:make-moment 0/4))))
 ; predicate for a pair of measure and short-mom
