@@ -551,7 +551,7 @@ Path: ~a" path)))))
 (define (create-mod-path edition-target measure moment context-edition-id)
   `(,@context-edition-id ,measure ,moment ,edition-target))
 
-; add modification(s)
+; add modification(s) TODO: Add markers
 (define-public (edition-mod edition-target measure moment context-edition-id mods)
   (cond
    ((ly:context-mod? mods) (set! mods (list mods))) ; apply context-mod
