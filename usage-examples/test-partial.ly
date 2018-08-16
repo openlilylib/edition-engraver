@@ -11,6 +11,7 @@
 }
 
 \addEdition test
+\editionMod test START 0 Score \mark \default
 \editionMod test 1 #(ly:make-moment -1/4) lala.la.Voice.A \once \override NoteHead.color = #green
 \editionMod test 1 0/4 lala.la.Voice.C \once \override NoteHead.color = #red
 

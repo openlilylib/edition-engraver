@@ -236,9 +236,8 @@ Path: ~a" path)))))
 ; convert to a moment
 (define (short-mom->moment m)
   (cond
-   ((integer? m)(ly:make-moment (/ m 4)))
-   ((fraction? m)(ly:make-moment (car m) (cdr m)))
-   ((rational? m)(ly:make-moment m))
+   ((number? m)(ly:make-moment (inexact->exact m)))
+   ((fraction? m)(ly:make-moment (/ (car m) (cdr m))))
    ((ly:moment? m) m)
    (else (ly:make-moment 0/4))))
 ; predicate for a pair of measure and short-mom
@@ -614,13 +613,27 @@ Path: ~a" path)))))
     ; (ly:message "mods ~A" mods)
     (tree-set! mod-tree (map explode-mod-path mod-path) (append tmods mods))
     ))
+; predicate for measure or marker
+(define (measure-position? v)
+  (and (list? v)
+       (cond
+        ((= 1 (length v))
+         (or (symbol? (car v)) (integer? (car v))))
+        ((= 2 (length v))
+         (and (symbol? (car v)) (integer? (cadr v))))
+        (else #f)
+        )))
 ; predicate for music or context-mod
 (define-public (music-or-context-mod? v) (or (ly:music? v)(ly:context-mod? v)))
 (define-public editionMod
   (define-void-function
    (edition-target measure moment context-edition-id mods)
-   (symbol? integer? short-mom? list? music-or-context-mod?)
-   (edition-mod edition-target measure (short-mom->moment moment) context-edition-id mods)))
+   (symbol? measure-position? short-mom? list? music-or-context-mod?)
+   (cond
+    ((and (= 1 (length measure))(integer? (car measure)))
+     (edition-mod edition-target (car measure) (short-mom->moment moment) context-edition-id mods))
+    (else (ly:message "~A ~A" measure moment))
+    )))
 
 ; add modification(s) on multiple times
 (define-public (edition-mod-list edition-target context-edition-id mods mom-list)
@@ -716,7 +729,7 @@ Path: ~a" path)))))
              (current-mods-abs (tree-get context-mods (list moment)))
              (current-mods-rel (tree-get context-mods (list measure measurePos)))
              (current-mods '()))
-;(ly:message "abs: ~A rel: ~A" (length (elist current-mods-abs)) (length (elist current-mods-rel)))
+        ;(ly:message "abs: ~A rel: ~A" (length (elist current-mods-abs)) (length (elist current-mods-rel)))
         (if (list? current-mods-rel) (set! current-mods current-mods-rel))
         (if (list? current-mods-abs) (set! current-mods (append current-mods current-mods-abs)))
         current-mods
