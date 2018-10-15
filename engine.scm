@@ -1,4 +1,4 @@
-; -*- master: example-1.ly;
+; -*- master: usage-examples/example-1.ly;
 ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 ;%                                                                             %
 ;% This file is part of openLilyLib,                                           %
