@@ -959,6 +959,7 @@ Path: ~a" path)))))
                        (measure-position (ly:context-property timing 'measurePosition)))
                   (ly:message "finalize ~A with ~A @ ~A / ~A-~A"
                     context-edition-id edition-targets current-moment current-measure measure-position)
+                  ; TODO filename, option-name
                   ; TODO format <file>.edition.log
                   (if (oll:getOption '(edition-engraver write-log))
                       (let ((filename (string-append (ly:parser-output-name (*parser*)) ".edition.log")))

@@ -39,6 +39,7 @@
 % getOption
 %\include "oll-core/internal/options.ily"
 
+% THE NAME OF THIS OPTION AND THE FILENAME WILL CHANGE IN UPCOMING VERSIONS!
 % write *.edition.log is default set to true
 \registerOption edition-engraver.write-log ##t
 \setOLLCallback #(lambda (path) (getOption path))
