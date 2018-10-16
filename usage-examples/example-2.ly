@@ -32,7 +32,10 @@
 \version "2.19.37"
 
 \include "oll-core/package.ily"
-\loadPackage edition-engraver
+\loadPackage \with {
+  % don't write 'example-2.edition.log'
+  write-log = ##f
+} edition-engraver
 
 \paper {
   ragged-right = ##f
@@ -55,8 +58,8 @@
 \editionMod test 2 0/4 Score \time 3/4
 \editionMod test 2 0/4 Score \tempo "Allegro" 4=135
 \editionMod test 2 0/4 Voice e''4 % articulations crash right now!
-\editionMod test 2 0/4 Voice \p
-\editionMod test 2 0/4 Voice \<
+\editionMod test 2 0/4 Voice ^\p
+\editionMod test 2 0/4 Voice ^\<
 \editionMod test 2 1/4 Lyrics #(make-music 'HyphenEvent)
 % due to the melisma mechanics, we have to set the properties one step later
 \editionMod test 2 3/8 Voice \melisma

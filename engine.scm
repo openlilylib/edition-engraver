@@ -51,6 +51,13 @@
 ((@@ (lily) translator-property-description) 'edition-anchor symbol? "edition-mod anchor for relative timing (symbol)")
 ((@@ (lily) translator-property-description) 'edition-engraver-log boolean? "de/activate logging (boolean)")
 
+; callback for oll-core getOption ...
+(define oll:getOption #f)
+(define-public setOLLCallback #f)
+(let ((callback #f))
+  (set! setOLLCallback (define-void-function (cb)(procedure?) (set! callback cb)))
+  (set! oll:getOption (lambda (path) (if (procedure? callback) (callback path) #f))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; 2. The dynamic-tree will be integrated into (oll-core tree) to avoid this discouraged use of '@@'
 ;;; START dynamic-tree
@@ -953,16 +960,19 @@ Path: ~a" path)))))
                   (ly:message "finalize ~A with ~A @ ~A / ~A-~A"
                     context-edition-id edition-targets current-moment current-measure measure-position)
                   ; TODO format <file>.edition.log
-                  (with-output-to-file
-                   (string-append (ly:parser-output-name (*parser*)) ".edition.log")
-                   (lambda ()
-                     (tree-display context-counter)
-                     (tree-walk context-counter '()
-                       (lambda (p k val)
-                         (if (string? val) (format #t "~A \"~A\"\n" p val))
-                         ) '(sort . #t))
-                     ))))
-            ))
+                  (if (oll:getOption '(edition-engraver write-log))
+                      (let ((filename (string-append (ly:parser-output-name (*parser*)) ".edition.log")))
+                        (ly:message "write '~A' ..." filename)
+                        (with-output-to-file
+                         filename
+                         (lambda ()
+                           (tree-display context-counter)
+                           (tree-walk context-counter '()
+                             (lambda (p k val)
+                               (if (string? val) (format #t "~A \"~A\"\n" p val))
+                               ) '(sort . #t))
+                           ))))
+                  ))))
 
        ) ; /make-engraver
     ))
