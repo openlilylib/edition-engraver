@@ -1,4 +1,4 @@
-; -*- master: example-1.ly;
+; -*- master: usage-examples/example-1.ly;
 ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 ;%                                                                             %
 ;% This file is part of openLilyLib,                                           %
@@ -50,6 +50,13 @@
 ((@@ (lily) translator-property-description) 'edition-id list? "edition id (list)")
 ((@@ (lily) translator-property-description) 'edition-anchor symbol? "edition-mod anchor for relative timing (symbol)")
 ((@@ (lily) translator-property-description) 'edition-engraver-log boolean? "de/activate logging (boolean)")
+
+; callback for oll-core getOption ...
+(define oll:getOption #f)
+(define-public setOLLCallback #f)
+(let ((callback #f))
+  (set! setOLLCallback (define-void-function (cb)(procedure?) (set! callback cb)))
+  (set! oll:getOption (lambda (path) (if (procedure? callback) (callback path) #f))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; 2. The dynamic-tree will be integrated into (oll-core tree) to avoid this discouraged use of '@@'
@@ -235,9 +242,8 @@ Path: ~a" path)))))
 ; convert to a moment
 (define (short-mom->moment m)
   (cond
-   ((integer? m)(ly:make-moment (/ m 4)))
-   ((fraction? m)(ly:make-moment (car m) (cdr m)))
-   ((rational? m)(ly:make-moment m))
+   ((number? m)(ly:make-moment (inexact->exact m)))
+   ((fraction? m)(ly:make-moment (/ (car m) (cdr m))))
    ((ly:moment? m) m)
    (else (ly:make-moment 0/4))))
 ; predicate for a pair of measure and short-mom
@@ -690,9 +696,9 @@ Path: ~a" path)))))
              (measure (ly:context-property timing 'currentBarNumber))
              (measurePos (ly:context-property timing 'measurePosition))
              (current-mods (tree-get context-mods (list measure measurePos))))
-        
+
         (if (list? current-mods) current-mods '())
-        
+
         ))
     (define (propagate-mods)
       (log-slot "propagate-mods")
@@ -953,17 +959,21 @@ Path: ~a" path)))))
                        (measure-position (ly:context-property timing 'measurePosition)))
                   (ly:message "finalize ~A with ~A @ ~A / ~A-~A"
                     context-edition-id edition-targets current-moment current-measure measure-position)
+                  ; TODO filename, option-name
                   ; TODO format <file>.edition.log
-                  (with-output-to-file
-                   (string-append (ly:parser-output-name (*parser*)) ".edition.log")
-                   (lambda ()
-                     (tree-display context-counter)
-                     (tree-walk context-counter '()
-                       (lambda (p k val)
-                         (if (string? val) (format #t "~A \"~A\"\n" p val))
-                         ) '(sort . #t))
-                     ))))
-            ))
+                  (if (oll:getOption '(edition-engraver write-log))
+                      (let ((filename (string-append (ly:parser-output-name (*parser*)) ".edition.log")))
+                        (ly:message "write '~A' ..." filename)
+                        (with-output-to-file
+                         filename
+                         (lambda ()
+                           (tree-display context-counter)
+                           (tree-walk context-counter '()
+                             (lambda (p k val)
+                               (if (string? val) (format #t "~A \"~A\"\n" p val))
+                               ) '(sort . #t))
+                           ))))
+                  ))))
 
        ) ; /make-engraver
     ))

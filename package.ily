@@ -30,8 +30,17 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \version "2.19.36"
-
 % activate edition-engraver module
 #(use-modules (edition-engraver engine))
+
 % Function to consist the EE in multiple contexts
 \include "oll-core/util/consist-to-contexts.ily"
+
+% getOption
+%\include "oll-core/internal/options.ily"
+
+% THE NAME OF THIS OPTION AND THE FILENAME WILL CHANGE IN UPCOMING VERSIONS!
+% write *.edition.log is default set to true
+\registerOption edition-engraver.write-log ##t
+\setOLLCallback #(lambda (path) (getOption path))
+
