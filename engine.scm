@@ -151,6 +151,7 @@ Path: ~a" path)))))
       )))
 
 ; get all children with procedure inside path
+; TODO we won't fetch all trees, if we mix plain paths with wildcards/regexs?
 (define-method (tree-get-all-trees (tree <tree>) (path <list>))
   (if (= (length path) 0)
       (list tree)
@@ -881,6 +882,7 @@ Path: ~a" path)))))
             (for-each
              (lambda (context-edition-sid)
                ;(ly:message "~A" context-edition-sid)
+; TODO we won't fetch all trees, if we mix plain paths with wildcards/regexs?
                (let ((mtrees (tree-get-all-trees mod-tree context-edition-sid)))
                  (for-each
                   (lambda (mtree)
