@@ -32,7 +32,11 @@
 \version "2.19.37"
 
 \include "oll-core/package.ily"
-\loadPackage edition-engraver
+\loadPackage \with {
+  % THE NAME OF THIS OPTION AND THE FILENAME WILL CHANGE IN UPCOMING VERSIONS!
+  % don't write 'example-2.edition.log'
+  write-log = ##f
+} edition-engraver
 
 \paper {
   ragged-right = ##f

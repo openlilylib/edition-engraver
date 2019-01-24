@@ -1,4 +1,4 @@
-; -*- master: example-1.ly;
+; -*- master: usage-examples/example-1.ly;
 ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 ;%                                                                             %
 ;% This file is part of openLilyLib,                                           %
@@ -50,6 +50,13 @@
 ((@@ (lily) translator-property-description) 'edition-id list? "edition id (list)")
 ((@@ (lily) translator-property-description) 'edition-anchor symbol? "edition-mod anchor for relative timing (symbol)")
 ((@@ (lily) translator-property-description) 'edition-engraver-log boolean? "de/activate logging (boolean)")
+
+; callback for oll-core getOption ...
+(define oll:getOption #f)
+(define-public setOLLCallback #f)
+(let ((callback #f))
+  (set! setOLLCallback (define-void-function (cb)(procedure?) (set! callback cb)))
+  (set! oll:getOption (lambda (path) (if (procedure? callback) (callback path) #f))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; 2. The dynamic-tree will be integrated into (oll-core tree) to avoid this discouraged use of '@@'
@@ -411,6 +418,8 @@ Path: ~a" path)))))
 (define edition-targets '())
 ; store mods in a tree - to be accessed by path
 (define mod-tree (tree-create-dynamic 'edition-mods))
+; store markers
+(define marker-list (make-hash-table))
 
 ; add/activate edition-target
 (define-public (add-edition edition-target)
@@ -594,25 +603,27 @@ Path: ~a" path)))))
           (let* ((mod-string (symbol->string mod-path))
                  (mod-cl (string->list mod-string)))
             (cond
-             ((and
-               (eq? #\{ (first mod-cl))
-               (eq? #\} (last mod-cl))
-               ) (wildcard2regex (list-tail (list-head mod-cl (1- (length mod-cl))) 1) ))
-             ((and
-               (eq? #\/ (first mod-cl))
-               (eq? #\/ (last mod-cl))
-               ) (regex-match (substring mod-string 1 (1- (string-length mod-string)))))
-             ((and
-               (eq? #\< (first mod-cl))
-               (eq? #\> (last mod-cl)))
+             ((and ; explode {wildcard}
+                   (eq? #\{ (first mod-cl))
+                   (eq? #\} (last mod-cl))
+                   ) (wildcard2regex (list-tail (list-head mod-cl (1- (length mod-cl))) 1) ))
+             ((and ; explode /regex/
+                   (eq? #\/ (first mod-cl))
+                   (eq? #\/ (last mod-cl))
+                   ) (regex-match (substring mod-string 1 (1- (string-length mod-string)))))
+             ((and ; explode <procedure>
+                   (eq? #\< (first mod-cl))
+                   (eq? #\> (last mod-cl)))
               (let* ((proc-name (string->symbol (substring mod-string 1 (1- (string-length mod-string)))))
                      (proc (ly:parser-lookup proc-name)))
                 (if (procedure? proc) proc mod-path)))
              (else mod-path)))
           mod-path
           ))
+
     ; (ly:message "mods ~A" mods)
     (tree-set! mod-tree (map explode-mod-path mod-path) (append tmods mods))
+
     ))
 ; predicate for measure or marker
 (define (measure-position? v)
@@ -648,6 +659,27 @@ Path: ~a" path)))))
    (edition-mod-list edition-target context-edition-id mods mom-list)))
 
 ; TODO development1.ly Start/Stop/Add-ModList
+
+
+(define-public editionMark
+  (define-music-function (sym)(symbol?)
+    (make-music 'ApplyContext
+      'procedure
+      (lambda (context)
+        (hash-set! marker-list sym
+          (list
+           (ly:context-current-moment context)
+           (ly:context-property context 'currentBarNumber)
+           (ly:context-property context 'measure-position)
+           )))
+      )))
+
+(define-public logEditionMarks
+  (define-void-function ()()
+    (for-each
+     (lambda (p) (ly:message "~A: ~A" (car p)(cdr p)))
+     (hash-table->alist marker-list)
+     )))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; The edition-engraver
@@ -816,7 +848,7 @@ Path: ~a" path)))))
                 ((and (ly:music? mod)
                       (not (memq mod-name '(TextScriptEvent)))
                       (memq mod-name (map car music-descriptions)))
-                 ;(ly:message "trying ~A" mod-name)
+                 ;(ly:message "trying ~A" (with-output-to-string (lambda () #{ \displayLilyMusic #mod #})))
                  (ly:broadcast (ly:context-event-source context)
                    (ly:make-stream-event
                     (ly:assoc-get 'types (ly:assoc-get mod-name music-descriptions '()) '())
@@ -882,7 +914,7 @@ Path: ~a" path)))))
             (for-each
              (lambda (context-edition-sid)
                ;(ly:message "~A" context-edition-sid)
-; TODO we won't fetch all trees, if we mix plain paths with wildcards/regexs?
+               ; TODO we won't fetch all trees, if we mix plain paths with wildcards/regexs?
                (let ((mtrees (tree-get-all-trees mod-tree context-edition-sid)))
                  (for-each
                   (lambda (mtree)
@@ -995,17 +1027,21 @@ Path: ~a" path)))))
                        (measure-position (ly:context-property timing 'measurePosition)))
                   (ly:message "finalize ~A with ~A @ ~A / ~A-~A"
                     context-edition-id edition-targets current-moment current-measure measure-position)
+                  ; TODO filename, option-name
                   ; TODO format <file>.edition.log
-                  (with-output-to-file
-                   (string-append (ly:parser-output-name (*parser*)) ".edition.log")
-                   (lambda ()
-                     (tree-display context-counter)
-                     (tree-walk context-counter '()
-                       (lambda (p k val)
-                         (if (string? val) (format #t "~A \"~A\"\n" p val))
-                         ) '(sort . #t))
-                     ))))
-            ))
+                  (if (oll:getOption '(edition-engraver write-log))
+                      (let ((filename (string-append (ly:parser-output-name (*parser*)) ".edition.log")))
+                        (ly:message "write '~A' ..." filename)
+                        (with-output-to-file
+                         filename
+                         (lambda ()
+                           (tree-display context-counter)
+                           (tree-walk context-counter '()
+                             (lambda (p k val)
+                               (if (string? val) (format #t "~A \"~A\"\n" p val))
+                               ) '(sort . #t))
+                           ))))
+                  ))))
 
        ) ; /make-engraver
     ))

@@ -1,3 +1,5 @@
+\version "2.19.82"
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                                                                             %
 % This file is part of openLilyLib,                                           %
@@ -25,22 +27,25 @@
 % openLilyLib is maintained by Urs Liska, ul@openlilylib.org                  %
 % edition-engraver is maintained by Jan-Peter Voigt, jp.voigt@gmx.de          %
 % and others.                                                                 %
-%       Copyright Jan-Peter Voigt, Urs Liska, 2016                            %
+%       Copyright Jan-Peter Voigt, Urs Liska, 2019                            %
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\version "2.19.36"
-% activate edition-engraver module
-#(use-modules (edition-engraver engine))
+\version "2.19.37"
 
-% Function to consist the EE in multiple contexts
-\include "oll-core/util/consist-to-contexts.ily"
+\include "oll-core/package.ily"
+\loadPackage \with {
+} edition-engraver
 
-% getOption
-%\include "oll-core/internal/options.ily"
+\consistToContexts #edition-engraver Score.Staff.Voice.Lyrics
 
-% THE NAME OF THIS OPTION AND THE FILENAME WILL CHANGE IN UPCOMING VERSIONS!
-% write *.edition.log is default set to true
-\registerOption edition-engraver.write-log ##t
-\setOLLCallback #(lambda (path) (getOption path))
+\relative {
+  \partial 4
+  \editionMark START
+  \grace c''8 d4 |
+  e4 b gis e
+  \editionMark "b2"
+  fis4
+  \applyContext #(lambda (context) (logEditionMarks))
+}
 
