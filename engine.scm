@@ -782,7 +782,8 @@ Path: ~a" path)))))
                 ((and (ly:music? mod)
                       (not (memq mod-name '(TextScriptEvent)))
                       (memq mod-name (map car music-descriptions)))
-                 (ly:message "trying ~A" (with-output-to-string (lambda () #{ \displayLilyMusic #mod #})))
+                 ;TODO conditionally log with meta info
+                 ;(ly:message "trying ~A" (with-output-to-string (lambda () #{ \displayLilyMusic #mod #})))
                  (ly:broadcast (ly:context-event-source context)
                    (ly:make-stream-event
                     (ly:assoc-get 'types (ly:assoc-get mod-name music-descriptions '()) '())
