@@ -8,7 +8,7 @@
 \addEdition test
 
 \editionMod test 2 0/4 Voice {
-  \once \override TextSpanner.bound-details.left.text = #'((text . "A"))
+  \override TextSpanner.bound-details.left.text = "A"
   <>\startTextSpan
 }
 \editionMod test 2 3/4 Voice \stopTextSpan
