@@ -160,37 +160,37 @@ Path: ~a" path)))))
 ; get all children with procedure inside path
 ; TODO we won't fetch all trees, if we mix plain paths with wildcards/regexs?
 (define-method (tree-get-all-trees (tree <tree>) (path <list>))
-   (if (= (length path) 0)
-       (list tree)
-       (let* ((ckey (car path))
-              (cpath (cdr path))
-              (childs (hash-map->list cons (children tree) ))
-              (child (hash-ref (children tree) ckey)))
+  (if (= (length path) 0)
+      (list tree)
+      (let* ((ckey (car path))
+             (cpath (cdr path))
+             (childs (hash-map->list cons (children tree) ))
+             (child (hash-ref (children tree) ckey)))
 
-         (set! childs (map (lambda (p) (cons (car p) (cdr p))) childs))
-         (set! childs
-               (cond
-                ((procedure? ckey)
-                 (filter (lambda (child) (ckey (car child))) childs))
-                ((is-a? child <tree>)
-                 (list (cons ckey child)))
-                (else
-                 (map
-                  (lambda (child)
-                    (cons ckey (cdr child)))
-                  (filter
-                   (lambda (p)
-                     (let* ((tree (cdr p))
-                            (tkey (get-key tree)))
-                       (and (procedure? tkey) (tkey ckey))
-                       )) childs))
-                 )))
-         (concatenate
-          (map
-           (lambda (child)
-             (tree-get-all-trees (cdr child) (cdr path)))
-           childs))
-         )))
+        (set! childs (map (lambda (p) (cons (car p) (cdr p))) childs))
+        (set! childs
+              (cond
+               ((procedure? ckey)
+                (filter (lambda (child) (ckey (car child))) childs))
+               ((is-a? child <tree>)
+                (list (cons ckey child)))
+               (else
+                (map
+                 (lambda (child)
+                   (cons ckey (cdr child)))
+                 (filter
+                  (lambda (p)
+                    (let* ((tree (cdr p))
+                           (tkey (get-key tree)))
+                      (and (procedure? tkey) (tkey ckey))
+                      )) childs))
+                )))
+        (concatenate
+         (map
+          (lambda (child)
+            (tree-get-all-trees (cdr child) (cdr path)))
+          childs))
+        )))
 ; get all children with procedure inside path
 (define-method (tree-get-all (tree <tree>) (path <list>))
   (map value (tree-get-all-trees tree path)))
@@ -274,87 +274,6 @@ Path: ~a" path)))))
 
 ;%%%%%%%%%%%%% mod-classes
 
-; we need to store some mods as arbitrary objects, to allow once
-
-;;; property set as a class
-(define-class <propset> ()
-  (once #:init-value #t #:accessor is-once #:setter set-once! #:init-keyword #:once)
-  (symbol #:accessor get-symbol #:setter set-symbol! #:init-keyword #:symbol)
-  (value #:accessor get-value #:setter set-value! #:init-keyword #:value)
-  (previous #:accessor get-previous #:setter set-previous! #:init-value #f)
-  (context #:accessor get-context #:setter set-context! #:init-keyword #:context)
-  )
-
-; execute property set
-(define-method (do-propset context (prop <propset>))
-  (if (get-context prop)
-      (let ((parent-context (ly:context-find context (get-context prop))))
-        (if (ly:context? parent-context) (set! context parent-context))))
-  (set-previous! prop (ly:context-property context (get-symbol prop)))
-  (ly:context-set-property! context (get-symbol prop) (get-value prop))
-  )
-(export do-propset)
-
-; execute property reset
-(define-method (reset-prop context (prop <propset>))
-  (if (get-context prop)
-      (let ((parent-context (ly:context-find context (get-context prop))))
-        (if (ly:context? parent-context) (set! context parent-context))))
-  (ly:context-set-property! context (get-symbol prop) (get-previous prop))
-  )
-(export reset-prop)
-
-; propset predicate
-(define-public (propset? p)(is-a? p <propset>))
-; propset -> string
-(define-method (propset->string (ps <propset>))
-  (format "~A\\set ~A = ~A" (if (is-once ps) "\\once " "") (string-append (if (get-context ps) (format "~A." (get-context ps)) "") (format "~A" (get-symbol ps))) (get-value ps)))
-(export propset->string)
-; display propset
-(define-method (display (o <propset>) port) (display (propset->string o) port))
-
-
-
-;;; property set as a class
-(define-class <propunset> ()
-  (once #:init-value #t #:accessor is-once #:setter set-once! #:init-keyword #:once)
-  (symbol #:accessor get-symbol #:setter set-symbol! #:init-keyword #:symbol)
-  (previous #:accessor get-previous #:setter set-previous! #:init-value #f)
-  (context #:accessor get-context #:setter set-context! #:init-keyword #:context)
-  )
-
-; execute property set
-(define-method (do-propunset context (prop <propunset>))
-  (if (get-context prop)
-      (let ((parent-context (ly:context-find context (get-context prop))))
-        (if (ly:context? parent-context) (set! context parent-context))))
-  (set-previous! prop (ly:context-property context (get-symbol prop)))
-  ;(ly:message "~A" prop)
-  (ly:context-unset-property context (get-symbol prop))
-  )
-(export do-propunset)
-
-; execute property reset
-(define-method (reunset-prop context (prop <propunset>))
-  (if (get-context prop)
-      (let ((parent-context (ly:context-find context (get-context prop))))
-        (if (ly:context? parent-context) (set! context parent-context))))
-  (ly:context-set-property! context (get-symbol prop) (get-previous prop))
-  )
-(export reunset-prop)
-
-; propset predicate
-(define-public (propunset? p)(is-a? p <propunset>))
-; propset -> string
-(define-method (propunset->string (ps <propunset>))
-  (format "~A\\unset ~A" (if (is-once ps) "\\once " "")
-    (string-append (if (get-context ps) (format "~A." (get-context ps)) "") (format "~A" (get-symbol ps)))))
-(export propunset->string)
-; display propset
-(define-method (display (o <propunset>) port) (display (propunset->string o) port))
-
-
-
 ;;; apply-context as a class
 (define-class <apply-context> ()
   (proc #:accessor procedure #:setter set-procedure! #:init-keyword #:proc)
@@ -366,69 +285,6 @@ Path: ~a" path)))))
 (export do-apply)
 ; apply-context as a class
 (define-public (apply-context? a)(is-a? a <apply-context>))
-
-
-
-;;; override as a class
-; TODO: temporary override?
-; TODO: is this needed?
-(define-class <override> ()
-  (once #:init-value #t #:accessor is-once #:setter set-once! #:init-keyword #:once)
-  (revert #:init-value #f #:accessor is-revert #:setter set-revert! #:init-keyword #:revert)
-  (grob #:accessor get-grob #:setter set-grob! #:init-keyword #:grob)
-  (prop #:accessor get-prop #:setter set-prop! #:init-keyword #:prop)
-  (value #:accessor get-value #:setter set-value! #:init-keyword #:value)
-  (context #:accessor get-context #:setter set-context! #:init-keyword #:context)
-  )
-
-; override -> string
-(define-method (oop->string (o <override>))
-  (let* ((context-name (get-context o))
-         (context-sname (if context-name (format "~A." context-name) "")))
-    (if (is-revert o)
-        (string-append "\\revert " context-sname (format "~A " (get-grob o)) (format "#'~A" (get-prop o)))
-        (string-append (if (is-once o) "\\once " "") "\\override " context-sname (format "~A " (get-grob o)) (format "#'~A" (get-prop o)) " = " (format "~A" (get-value o)))
-        )))
-(export oop->string)
-; display override
-(define-method (display (o <override>) port) (display (oop->string o) port))
-; override predicate
-(define-public (override? o)(is-a? o <override>))
-
-; execute override
-(define-method (do-override context (mod <override>))
-  (if (get-context mod)
-      (let ((parent-context (ly:context-find context (get-context mod))))
-        (if (ly:context? parent-context) (set! context parent-context))))
-  (let ((grob (get-grob mod))
-        (prop (get-prop mod))
-        (value (get-value mod)))
-    (if (list? prop)
-        (let ((aval (ly:context-property context (car prop)))
-              (path (cdr prop)))
-          (define (atree-set! atree path value)
-            (cond ((= 1 (length path)) value)
-              (else (assoc-set! atree (car path)
-                      (atree-set! (ly:assoc-get (car path) atree '() #f) (cdr path) value)))
-              ))
-          (ly:message "aval ~A value ~A" aval value)
-          (set! value (atree-set! aval path value))
-          (ly:message "value ~A" value)
-          (set! prop (car prop))
-          ))
-    (ly:context-pushpop-property context grob prop value)
-    ))
-(export do-override)
-; revert override
-(define-method (do-revert context (mod <override>))
-  (if (get-context mod)
-      (let ((parent-context (ly:context-find context (get-context mod))))
-        (if (ly:context? parent-context) (set! context parent-context))))
-  (let ((grob (get-grob mod))
-        (prop (get-prop mod)))
-    (ly:context-pushpop-property context grob (if (list? prop) (car prop) prop))
-    ))
-(export do-revert)
 
 ;%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -487,6 +343,13 @@ Path: ~a" path)))))
     (for-some-music-with-elements-callback
      (lambda (m)
        (let ((music-name (ly:music-property m 'name)))
+
+         (define (collect-mod m)
+           (let ((m (ly:music-deep-copy m)))
+             (ly:music-set-property! m 'origin (*location*))
+             (set! collected-mods `(,@collected-mods ,m))
+             ))
+
          ;(if (ly:duration? (ly:music-property m 'duration))
          ;    (ly:music-warning music "Music unsuitable for edition mod"))
          (cond
@@ -504,50 +367,26 @@ Path: ~a" path)))))
 
           ; \override Grob.property =
           ((eq? 'OverrideProperty music-name)
-           (let* ((once (ly:music-property m 'once #f))
-                  (grob (ly:music-property m 'symbol))
-                  (prop (ly:music-property m 'grob-property))
-                  (prop-path (ly:music-property m 'grob-property-path))
-                  (prop (if (symbol? prop)
-                            prop
-                            prop-path))
-                  (value (ly:music-property m 'grob-value))
-                  (mod m)) ;(make <override> #:once once #:grob grob #:prop prop #:value value #:context context)))
-             ; (ly:message "mod ~A" mod)
-             (set! collected-mods `(,@collected-mods ,mod)) ; alternative (cons mod collected-mods)
-             #t
-             ))
+           (ly:music-set-property! m 'ee:context-spec context)
+           (collect-mod m)
+           #t)
           ; \revert ...
           ((eq? 'RevertProperty music-name)
-           (let* ((grob (ly:music-property m 'symbol))
-                  (prop (ly:music-property m 'grob-property))
-                  (prop (if (symbol? prop)
-                            prop
-                            (car (ly:music-property m 'grob-property-path))))
-                  (mod m)) ;(make <override> #:once #f #:revert #t #:grob grob #:prop prop #:value #f #:context context)))
-             (set! collected-mods `(,@collected-mods ,mod))
-             #t
-             ))
+           (ly:music-set-property! m 'ee:context-spec context)
+           (collect-mod m)
+           #t)
           ; \set property = ...
           ((eq? 'PropertySet music-name)
-           (let* ((once (ly:music-property m 'once #f))
-                  (symbol (ly:music-property m 'symbol))
-                  (value (ly:music-property m 'value))
-                  (mod m)) ;(make <propset> #:once once #:symbol symbol #:value value #:context context)))
-             (set! collected-mods `(,@collected-mods ,mod))
-             #t
-             ))
-
+           (ly:music-set-property! m 'ee:context-spec context)
+           (collect-mod m)
+           #t)
           ; \unset property = ...
           ((eq? 'PropertyUnset music-name)
-           (let* ((once (ly:music-property m 'once #f))
-                  (symbol (ly:music-property m 'symbol))
-                  (mod m)) ;(make <propunset> #:once once #:symbol symbol #:context context)))
-             (set! collected-mods `(,@collected-mods ,mod))
-             #t
-             ))
+           (ly:music-set-property! m 'ee:context-spec context)
+           (collect-mod m)
+           #t)
 
-          ; \applyContext ...
+          ; \applyContext ... TODO origin
           ((eq? 'ApplyContext music-name)
            (let* ((proc (ly:music-property m 'procedure))
                   (mod (make <apply-context> #:proc proc)))
@@ -569,7 +408,7 @@ Path: ~a" path)))))
               (lambda (e)
                 (not (memq e '(SequentialMusic SimultaneousMusic EventChord))))
               (map car music-descriptions)))
-           (set! collected-mods `(,@collected-mods ,m))
+           (collect-mod m)
            #t)
 
           (else #f) ; go ahead ...
@@ -691,9 +530,9 @@ Path: ~a" path)))))
                 (string->symbol cid)
                 #f)))
          (context-mods #f)
-         (once-mods '())
          (start-translation-timestep-moment #f)
          (track-mod-move #f)
+         (mod-events (tree-create 'mod-events))
          )
 
     ; log slot calls
@@ -763,6 +602,8 @@ Path: ~a" path)))))
             (set! track-mod-move measure))
         ))
 
+    (define (event-source context context-spec)
+      (ly:context-event-source (if (symbol? context-spec) (ly:context-find context context-spec) context)))
     (define (broadcast-music mod clsevent)
       (ly:broadcast (ly:context-event-source context)
         (ly:make-stream-event
@@ -772,33 +613,105 @@ Path: ~a" path)))))
     ; define start-translation-timestep to use it in initialize if needed
     (define (start-translation-timestep trans)
       (log-slot "start-translation-timestep")
+      (set! mod-events (tree-create 'mod-events))
       (if (or (not start-translation-timestep-moment)
               (ly:moment<? start-translation-timestep-moment (ly:context-now context)))
           (for-each
            (lambda (mod)
              (let ((mod-name (if (ly:music? mod) (ly:music-property mod 'name))))
+               (define (get-property-path m)
+                 (let ((grob-property-path (ly:music-property m 'grob-property-path))
+                       (eprop (ly:music-property m 'grob-property)))
+                   (if (symbol? eprop)
+                       (set! grob-property-path (list eprop)))
+                   grob-property-path
+                   ))
                (cond
-                ((override? mod)
-                 (if (is-revert mod)
-                     (do-revert context mod)
-                     (do-override context mod))
-                 ; if it is once, add to once-list
-                 (if (is-once mod) (set! once-mods (cons mod once-mods)))
-                 )
-                ((propset? mod)
-                 (do-propset context mod)
-                 (if (is-once mod) (set! once-mods (cons mod once-mods)))
-                 )
-                ((propunset? mod)
-                 (do-propunset context mod)
-                 (if (is-once mod) (set! once-mods (cons mod once-mods)))
-                 )
 
                 ((apply-context? mod) (do-apply context mod))
                 ((and (ly:music? mod)(eq? 'CrescendoEvent mod-name))
                  (broadcast-music mod 'crescendo-event))
                 ((and (ly:music? mod)(eq? 'DecrescendoEvent mod-name))
                  (broadcast-music mod 'decrescendo-event))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+                ; Override
+                ((and (ly:music? mod)(eq? 'OverrideProperty mod-name))
+                 (let* ((context-spec (ly:music-property mod 'ee:context-spec context))
+                        (evprops `(
+                                    (symbol . ,(ly:music-property mod 'symbol))
+                                    (property-path . ,(get-property-path mod))
+                                    (once . ,(ly:music-property mod 'once))
+                                    (value . ,(ly:music-property mod 'grob-value))
+                                    (origin . ,(ly:music-property mod 'origin))
+                                    (ee:context-spec . ,context-spec)
+                                    )))
+                   (if (and (eq? #t (ly:music-property mod 'pop-first))
+                            (not (eq? #t (ly:music-property mod 'once))))
+                       (ly:broadcast (event-source context context-spec)
+                         (ly:make-stream-event
+                          '(Revert StreamEvent)
+                          evprops)
+                         ))
+                   (ly:broadcast (event-source context context-spec)
+                     (ly:make-stream-event
+                      '(Override StreamEvent)
+                      (assoc-set! evprops 'ee:mod #t))
+                     )))
+
+                ; Revert
+                ((and (ly:music? mod)(eq? 'RevertProperty mod-name))
+                 (let* ((context-spec (ly:music-property mod 'ee:context-spec context))
+                        (evprops `(
+                                    (symbol . ,(ly:music-property mod 'symbol))
+                                    (property-path . ,(get-property-path mod))
+                                    (once . ,(ly:music-property mod 'once))
+                                    (origin . ,(ly:music-property mod 'origin))
+                                    (ee:context-spec . ,context-spec)
+                                    )))
+                   (ly:broadcast (event-source context context-spec)
+                     (ly:make-stream-event
+                      '(Revert StreamEvent)
+                      (assoc-set! evprops 'ee:mod #t))
+                     )))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+                ; set
+                ((and (ly:music? mod)(eq? 'PropertySet (ly:music-property mod 'name)))
+                 (let* ((context-spec (ly:music-property mod 'ee:context-spec context))
+                        (evprops `(
+                                    (symbol . ,(ly:music-property mod 'symbol))
+                                    (once . ,(ly:music-property mod 'once))
+                                    (value . ,(ly:music-property mod 'value))
+                                    (origin . ,(ly:music-property mod 'origin))
+                                    (ee:context-spec . ,context-spec)
+                                    )))
+                   (ly:broadcast (event-source context context-spec)
+                     (ly:make-stream-event
+                      '(SetProperty StreamEvent)
+                      (assoc-set! evprops 'ee:mod #t))
+                     )))
+
+                ; unset
+                ((and (ly:music? mod)(eq? 'PropertyUnset (ly:music-property mod 'name)))
+                 (let* ((context-spec (ly:music-property mod 'ee:context-spec context))
+                        (evprops `(
+                                    (symbol . ,(ly:music-property mod 'symbol))
+                                    (once . ,(ly:music-property mod 'once))
+                                    (origin . ,(ly:music-property mod 'origin))
+                                    (ee:context-spec . ,context-spec)
+                                    )))
+                   (ly:broadcast (event-source context context-spec)
+                     (ly:make-stream-event
+                      '(UnsetProperty StreamEvent)
+                      (assoc-set! evprops 'ee:mod #t))
+                     )))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 
                 ((and (ly:music? mod)
                       (not (memq mod-name '(TextScriptEvent)))
@@ -818,7 +731,7 @@ Path: ~a" path)))))
 
 
     ;(ly:message "~A ~A" (ly:context-id context) context-id)
-    `( ; TODO slots: listeners, acknowledgers, end-acknowledgers, process-acknowledged
+    `( ; TODO slots: end-acknowledgers, process-acknowledged
 
        (must-be-last . #t)
        ; initialize engraver with its own id
@@ -911,6 +824,65 @@ Path: ~a" path)))))
               (set! start-translation-timestep-moment now))
             ))
 
+       (listeners
+        (Override .
+          ,(lambda (engraver event)
+             (let ((ismod (ly:event-property event 'ee:mod))
+                   (once (ly:event-property event 'once))
+                   (path `(,(ly:event-property event 'symbol) ,@(ly:event-property event 'property-path))))
+               (if (eq? #t ismod)
+                   (tree-set! mod-events path event)
+                   (let ((mod-event (tree-get mod-events path)))
+                     (if (ly:stream-event? mod-event)
+                         (let ((context-spec (ly:event-property mod-event 'ee:context-spec)))
+                           (ly:input-warning (ly:event-property mod-event 'origin) "edition-engraver overridden by music! (~A)" path)
+                           ))
+                     ))
+               )))
+        (Revert .
+          ,(lambda (engraver event)
+             (let ((ismod (ly:event-property event 'ee:mod))
+                   (once (ly:event-property event 'once))
+                   (path `(,(ly:event-property event 'symbol) ,@(ly:event-property event 'property-path))))
+               (if (eq? #t ismod)
+                   (tree-set! mod-events path event)
+                   (let ((mod-event (tree-get mod-events path)))
+                     (if (ly:stream-event? mod-event)
+                         (let ((context-spec (ly:event-property mod-event 'ee:context-spec)))
+                           (ly:input-warning (ly:event-property mod-event 'origin) "edition-engraver overridden by music! (~A)" path)
+                           ))
+                     ))
+               )))
+        (SetProperty .
+          ,(lambda (engraver event)
+             (let ((ismod (ly:event-property event 'ee:mod))
+                   (once (ly:event-property event 'once))
+                   (path `(,(ly:event-property event 'symbol))))
+               (if (eq? #t ismod)
+                   (tree-set! mod-events path event)
+                   (let ((mod-event (tree-get mod-events path)))
+                     (if (ly:stream-event? mod-event)
+                         (let ((context-spec (ly:event-property mod-event 'ee:context-spec)))
+                           (ly:input-warning (ly:event-property mod-event 'origin) "edition-engraver overridden by music! (~A)" path)
+                           ))
+                     ))
+               )))
+        (UnsetProperty .
+          ,(lambda (engraver event)
+             (let ((ismod (ly:event-property event 'ee:mod))
+                   (once (ly:event-property event 'once))
+                   (path `(,(ly:event-property event 'symbol))))
+               (if (eq? #t ismod)
+                   (tree-set! mod-events path event)
+                   (let ((mod-event (tree-get mod-events path)))
+                     (if (ly:stream-event? mod-event)
+                         (let ((context-spec (ly:event-property mod-event 'ee:context-spec)))
+                           (ly:input-warning (ly:event-property mod-event 'origin) "edition-engraver overridden by music! (~A)" path)
+                           ))
+                     ))
+               )))
+        )
+
        ; paper columns --> breaks
        (acknowledgers ; TODO add acknowledgers from mods
          (paper-column-interface .
@@ -940,15 +912,6 @@ Path: ~a" path)))))
             (log-slot "stop-translation-timestep")
             ; we have to propagate measure-length exceeding mods here to correctly follow time sigs
             (propagate-mods)
-            (for-each ; revert/reset once override/set
-              (lambda (mod)
-                (cond
-                 ((propset? mod) (reset-prop context mod))
-                 ((override? mod) (do-revert context mod))
-                 ((ly:context-mod? mod) (ly:context-mod-apply! context mod))
-                 ))
-              once-mods)
-            (set! once-mods '()) ; reset once-mods
             ))
        ; process music
        (process-music .
