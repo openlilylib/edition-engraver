@@ -12,6 +12,7 @@
   <>\startTextSpan
 }
 \editionMod test 2 3/4 Voice \stopTextSpan
+\editionMod test 3 0/4 Voice \once \override TextSpanner.color = #green
 
 \new Voice \relative {
   c''4 c c c | d d d d | \override TextSpanner.bound-details.left.text = "B" b\startTextSpan b b b\stopTextSpan |
