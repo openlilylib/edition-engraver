@@ -336,6 +336,12 @@ Path: ~a" path)))))
                (for-each loop (ly:music-property music 'articulations))
                ))))))
 
+(define mod-music-names
+  (filter
+   (lambda (e)
+     (not (memq e '(SequentialMusic SimultaneousMusic EventChord))))
+   (map car music-descriptions)))
+
 ; collect mods, accepted by the engraver, from a music expression
 ; TODO should mods be separated by engraver-slot? (e.g. start-timestep - process-music - acknowledger - listener)
 (define (collect-mods music context)
@@ -407,11 +413,7 @@ Path: ~a" path)))))
              #f))
 
           ; any other
-          ((memq music-name
-             (filter
-              (lambda (e)
-                (not (memq e '(SequentialMusic SimultaneousMusic EventChord))))
-              (map car music-descriptions)))
+          ((memq music-name mod-music-names)
            (collect-mod m)
            #t)
 
