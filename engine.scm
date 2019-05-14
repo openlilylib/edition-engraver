@@ -482,6 +482,10 @@ Path: ~a" path)))))
                  )
              ))
 
+          ; music converted to context-mod
+          ((memq music-name '(OttavaMusic))
+           (set! collected-mods `(,@collected-mods ,(context-mod-from-music m))))
+
           ; \override Grob.property =
           ((eq? 'OverrideProperty music-name)
            (let* ((once (ly:music-property m 'once #f))
@@ -789,7 +793,7 @@ Path: ~a" path)))))
                     (ly:assoc-get 'types (ly:assoc-get mod-name music-descriptions '()) '())
                     (ly:music-mutable-properties mod)))
                  )
-
+                ((ly:context-mod? mod) (ly:context-mod-apply! context mod))
                 ((ly:music? mod) (ly:context-mod-apply! context (context-mod-from-music mod)))
                 ))) (find-mods)))
       (set! start-translation-timestep-moment #f)
