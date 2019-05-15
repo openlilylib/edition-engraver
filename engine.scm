@@ -58,6 +58,19 @@
   (set! setOLLCallback (define-void-function (cb)(procedure?) (set! callback cb)))
   (set! oll:getOption (lambda (path) (if (procedure? callback) (callback path) #f))))
 
+; little helpers
+; create list of strings
+(define (list->strings l)
+  (map (lambda (s)
+         (cond
+          ((string? s) s)
+          ((symbol? s) (symbol->string s))
+          (else (format "~A" s))
+          )) l))
+; create string from list separated by sep
+(define (glue-list l sep)
+  (string-join (list->strings l) sep 'infix))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; 2. The dynamic-tree will be integrated into (oll-core tree) to avoid this discouraged use of '@@'
 ;;; START dynamic-tree
@@ -541,6 +554,8 @@ Path: ~a" path)))))
          (mod-events (tree-create 'mod-events))
          )
 
+    (define (ee-id) (glue-list `(,@context-edition-id ,context-name ,(base26 context-edition-number)) "."))
+
     ; log slot calls
     (define (log-slot slot) ; TODO: option verbose? oll logging function?
       (if (and (eq? (ly:context-property-where-defined context 'edition-engraver-log) context)
@@ -778,18 +793,12 @@ Path: ~a" path)))))
               (if context-id (symbol->string context-id) "")) ; we need a string here
 
             ; copy all mods into this engravers mod-tree
-            (set! context-mods
-                  (tree-create (string->symbol
-                                (string-join
-                                 (map
-                                  (lambda (s)
-                                    (format "~A" s))
-                                  context-edition-id) ":"))))
+            (set! context-mods (tree-create (string->symbol (glue-list context-edition-id ":"))))
             ;(ly:message "init ~A \"~A\"" context-edition-id (ly:context-id context))
             (for-each
              (lambda (context-edition-sid)
                ;(ly:message "~A" context-edition-sid)
-; TODO we won't fetch all trees, if we mix plain paths with wildcards/regexs?
+               ; TODO we won't fetch all trees, if we mix plain paths with wildcards/regexs?
                (let ((mtrees (tree-get-all-trees mod-tree context-edition-sid)))
                  (for-each
                   (lambda (mtree)
@@ -837,11 +846,18 @@ Path: ~a" path)))))
                    (once (ly:event-property event 'once))
                    (path `(,(ly:event-property event 'symbol) ,@(ly:event-property event 'property-path))))
                (if (eq? #t ismod)
-                   (tree-set! mod-events path event)
+                   (begin
+                    (ly:event-set-property! event 'ee:context-spec context)
+                    (tree-set! mod-events path event))
                    (let ((mod-event (tree-get mod-events path)))
                      (if (ly:stream-event? mod-event)
-                         (let ((context-spec (ly:event-property mod-event 'ee:context-spec)))
-                           (ly:input-warning (ly:event-property mod-event 'origin) "edition-engraver overridden by music! (~A)" path)
+                         (let ((context-spec (ly:event-property mod-event 'ee:context-spec))
+                               (eewarning (ly:event-property mod-event 'ee:context-spec-warning)))
+                           (if eewarning ; log warning once
+                               (begin
+                                (ly:event-set-property! mod-event 'ee:context-spec-warning #f)
+                                (ly:input-warning (ly:event-property mod-event 'origin) "edition-engraver overridden by music! ~A ~A" (ee-id) (glue-list path "."))
+                                ))
                            ))
                      ))
                )))
@@ -960,10 +976,10 @@ Path: ~a" path)))))
                         (with-output-to-file
                          filename
                          (lambda ()
-                           (tree-display context-counter)
+                           ;(tree-display context-counter)
                            (tree-walk context-counter '()
                              (lambda (p k val)
-                               (if (string? val) (format #t "~A \"~A\"\n" p val))
+                               (if (string? val) (format #t "~A \"~A\"\n" (glue-list p ".") val))
                                ) '(sort . #t))
                            ))))
                   ))))
