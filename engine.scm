@@ -50,6 +50,7 @@
 ((@@ (lily) translator-property-description) 'edition-id list? "edition id (list)")
 ((@@ (lily) translator-property-description) 'edition-anchor symbol? "edition-mod anchor for relative timing (symbol)")
 ((@@ (lily) translator-property-description) 'edition-engraver-log boolean? "de/activate logging (boolean)")
+((@@ (lily) translator-property-description) 'edition-mod-callback procedure? "callback function for applied mods")
 
 ; callback for oll-core getOption ...
 (define oll:getOption #f)
@@ -551,6 +552,9 @@ Path: ~a" path)))))
          (context-mods #f)
          (start-translation-timestep-moment #f)
          (track-mod-move #f)
+         (mod-callback (if (eq? context (ly:context-property-where-defined context 'edition-mod-callback))
+                           (ly:context-property context 'edition-mod-callback)
+                           #f))
          (mod-events (tree-create 'mod-events))
          )
 
@@ -647,6 +651,13 @@ Path: ~a" path)))))
                        (set! grob-property-path (list eprop)))
                    grob-property-path
                    ))
+               ; callback for any mod
+               (if (procedure? mod-callback)
+                   (let ((cnow (ly:context-now context))
+                         (cmeasure (ly:context-property context 'currentBarNumber))
+                         (cmoment (ly:context-property context 'measurePosition)))
+                     (mod-callback context cnow cmeasure cmoment mod)
+                     ))
                (cond
 
                 ((apply-context? mod) (do-apply context mod))

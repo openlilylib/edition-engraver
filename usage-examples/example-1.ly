@@ -52,6 +52,7 @@
 \editionMod test 2 2/4 sing.with.bach.along.Staff \clef "alto"
 \editionMod test 3 2/4 sing.with.bach.along.Staff \clef "G"
 \editionMod test 5 0/4 sing.with.bach.along.Staff \bar ".|:-||"
+
 \editionMod test 5 0/4 sing.with.bach.along.Staff {
   \once \override KeySignature.color = #red
   \key f \major
@@ -60,6 +61,7 @@
                                      (ly:context-property context 'currentBarNumber)
                                      (ly:context-property context 'measurePosition)))
 }
+
 \editionMod test 10 0/4 sing.with.bach.along.Staff \key g \major
 
 \editionMod test 5 0/4 sing.with.bach.Score \set proportionalNotationDuration = #(ly:make-moment 1/24)
@@ -89,6 +91,13 @@
   \context {
     \Voice
     %edition-engraver-log = ##t
+    edition-mod-callback = #(lambda (context cnow cmeasure cmoment mod)
+                              ; we can track mods
+                              (ly:message "mod @ ~A : ~A"
+                                cnow
+                                (if (ly:music? mod)
+                                    (with-output-to-string (lambda () (displayLilyMusic mod)))
+                                    mod)))
   }
 }
 
