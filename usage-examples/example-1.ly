@@ -39,10 +39,9 @@
 \editionMod test 2 0/4 sing.with.bach.along.Voice.B \once \override NoteHead.color = #red
 
 \editionMod test 2 2/4 sing.with.bach.along.Voice.B \override NoteHead.color = #green
-\editionMod test 2 3/4 sing.with.bach.along.Voice.B \override NoteHead.color = #blue
+\editionMod test 2 3/4 sing.with.bach.along.Voice.B \temporary \override NoteHead.color = #blue
 \editionMod test 3 1/4 sing.with.bach.along.Voice.B \revert NoteHead.color
-% TODO how to enter this?
-\editionMod test 5 0/4 sing.with.bach.along.Voice.#(string->symbol "1") \revert NoteHead.color
+\editionMod test 5 0/4 sing.with.bach.along.Voice."1" \revert NoteHead.color
 
 \editionMod test 13 3/8 sing.with.bach.along.Voice.C \once \override NoteHead.color = #red
 
