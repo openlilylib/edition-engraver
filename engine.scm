@@ -529,6 +529,7 @@ Path: ~a" path)))))
 (define context-counter (tree-create 'context-counter))
 
 ;;;; TODO where to put this???
+;;;; TODO We only need this thing for backwards compatibility because we can simply number the contexts
 (define (base26list nr suf)
   (if (>= nr 26)
       (append (base26list (quotient nr 26) suf) (list (remainder nr 26)))
