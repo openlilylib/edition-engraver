@@ -36,7 +36,7 @@
 
 \addEdition test
 
-\editionMod test 2 0/4 sing.with.bach.along.Voice.B \once \override NoteHead.color = #red
+\editionMod test 2 0/4 sing.with.bach.along.Voice.2 \once \override NoteHead.color = #red
 
 \editionMod test 2 2/4 sing.with.bach.along.Voice.B \override NoteHead.color = #green
 \editionMod test 2 3/4 sing.with.bach.along.Voice.B \temporary \override NoteHead.color = #blue

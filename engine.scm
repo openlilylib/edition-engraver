@@ -447,6 +447,7 @@ Path: ~a" path)))))
   (let* ((mod-path (create-mod-path edition-target measure moment context-edition-id))
          (tmods (tree-get mod-tree mod-path))
          (tmods (if (list? tmods) tmods '())))
+    
     (define (wildcard2regex in)
       (let ((regex-string
              (list->string
@@ -462,6 +463,7 @@ Path: ~a" path)))))
                 #\$))))
         (regex-match regex-string)
         ))
+    
     (define (regex-match in)
       (let ((regex (make-regexp in regexp/icase)))
         (lambda (s)
@@ -473,6 +475,7 @@ Path: ~a" path)))))
              (else (format "~A" s))
              )))
         ))
+    
     ; fetch procedures from path
     ; TODO build procedures from wildcard string
     (define (explode-mod-path mod-path)
@@ -500,6 +503,7 @@ Path: ~a" path)))))
     ; (ly:message "mods ~A" mods)
     (tree-set! mod-tree (map explode-mod-path mod-path) (append tmods mods))
     ))
+
 ; predicate for music or context-mod
 (define-public (music-or-context-mod? v) (or (ly:music? v)(ly:context-mod? v)))
 (define-public editionMod
@@ -801,7 +805,7 @@ Path: ~a" path)))))
               (cons context-edition-number context-id))
             (tree-set! context-counter
               `(,@context-edition-id ,context-name
-                 ,(string->symbol (base26 context-edition-number))) ; we need a symbol for the path
+                 ,(format "[~A|~A]" (base26 context-edition-number) context-edition-number)) ; we need a symbol for the path
               (if context-id (symbol->string context-id) "")) ; we need a string here
 
             ; copy all mods into this engravers mod-tree
@@ -832,6 +836,7 @@ Path: ~a" path)))))
                                    (,@context-edition-id ,context-name ,context-id)
                                    ) '())
                (,@context-edition-id ,context-name ,(string->symbol (base26 context-edition-number)))
+               (,@context-edition-id ,context-name ,(1+ context-edition-number)) ; A is 1 not 0!
                ))
 
             (log-slot "initialize")
