@@ -29,10 +29,12 @@
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\version "2.19.43"
+\version "2.20.0"
 
 \include "oll-core/package.ily"
 \loadPackage edition-engraver
+
+#(use-modules (oll-core internal alist-access))
 
 % In this example we introduce a method to easily enter lists of mods
 % (the function provided here shall be moved to be available at once,
@@ -46,7 +48,7 @@
 % - e.g. a music expression with overrides, a contextMod or anything else applicable to \editionMod
 startModList =
 #(define-void-function (lid edition-target edition-context-id proc)(symbol? symbol? list? procedure?)
-   (newAtree lid) ; clear the variable
+   (ly:parser-define! lid '()) ; clear the variable
    (ly:parser-define! 'current-modlist lid) ; store list/var name
    (ly:parser-define! 'current-modproc `((proc . ,proc) ; store alist with procedure,
                                           (edition-target . ,edition-target) ; edition-target and
@@ -59,7 +61,9 @@ addModList =
    (define-void-function (takt pos mod)
      (integer? short-mom? scheme?)
      (if (and (defined? 'current-modlist)(symbol? current-modlist)) ; if ModList is started
-         (addAtree current-modlist (list (cons takt pos)) mod) ; add mod to the list
+         (let ((modtree (ly:parser-lookup current-modlist)))
+           (ly:parser-define! current-modlist
+             (set-in-atree modtree (list (cons takt pos)) mod #t))) ; add mod to the list
          (ly:input-warning (*location*) "no modlist started?") ; else give warning
          )))
 
@@ -82,7 +86,7 @@ finishModList =
           (lambda (p)
             (if (pair? p)
                 (let ((mod (proc (cdr p))))
-                   ; \editionMod edition-target measure position edition-context-id mod
+                  ; \editionMod edition-target measure position edition-context-id mod
                   (editionMod edition-target (caar p) (cdar p) edition-id mod)
                   )))
           lst)
@@ -107,7 +111,8 @@ modproc = \once \override NoteHead.color = \etc
 % add mods in measure 1 with values red and blue
 \addModList 1 3/8 #red
 \addModList 1 5/8 #blue
-\addModList 2 5/8 #yellow % order of input doesn't matter, but is recommended
+% add mods in measure 2 with values green and yellow
+\addModList 2 5/8 #yellow % order of input doesn't matter (but is recommended for clarity)
 \addModList 2 0/8 #green
 
 % display modlist:
@@ -121,7 +126,7 @@ modproc = \once \override NoteHead.color = \etc
 % activate edition-target 'partitur'
 \addEdition partitur
 
-% new Score 
+% new Score
 \repeat unfold 4 \relative c'' { bes8 a c b }
 
 
