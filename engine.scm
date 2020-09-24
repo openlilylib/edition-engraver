@@ -47,10 +47,10 @@
 ; 1. If the EE will be integrated into LilyPond proper this will be not necessary anymore
 
 ; add context properties descriptions (private lambda in module 'lily')
-((@@ (lily) translator-property-description) 'edition-id list? "edition id (list)")
-((@@ (lily) translator-property-description) 'edition-anchor symbol? "edition-mod anchor for relative timing (symbol)")
-((@@ (lily) translator-property-description) 'edition-engraver-log boolean? "de/activate logging (boolean)")
-((@@ (lily) translator-property-description) 'edition-mod-callback procedure? "callback function for applied mods")
+((@@ (lily) translator-property-description) 'edition-id list? "edition id (list?)")
+((@@ (lily) translator-property-description) 'edition-anchors list? "edition-mod anchors for relative timing (list?)")
+((@@ (lily) translator-property-description) 'edition-engraver-log boolean? "de/activate logging (boolean?)")
+((@@ (lily) translator-property-description) 'edition-mod-callback procedure? "callback function for applied mods (procedure?)")
 
 ; callback for oll-core getOption ...
 (define oll:getOption #f)
@@ -72,7 +72,7 @@
 (define (glue-list l sep)
   (string-join (list->strings l) sep 'infix))
 
-
+; import private version predicate
 (define ly:version? (@@ (lily) ly:version?))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -528,6 +528,36 @@ Path: ~a" path)))))
 
 ; TODO development1.ly Start/Stop/Add-ModList
 
+
+
+
+
+
+(define-public (add-anchor context sym)
+  (let* ((sco (ly:context-find context 'Score))
+         (anchor-list (ly:context-property sco 'edition-anchors))
+         (moment (ly:context-current-moment sco)))
+
+    (set! anchor-list
+          (if (list? anchor-list)
+              (assoc-set! anchor-list sym moment)
+              `((,sym . ,moment))))
+    (ly:context-set-property! sco 'edition-anchors anchor-list)
+    (ly:message "al ~A" anchor-list)
+    ))
+
+(define-public addAnchor
+  (define-music-function (sym)(symbol?)
+    #{
+      \applyContext #(lambda (context) (add-anchor context sym))
+    #}))
+
+(define-public editionModAnchor
+  (define-void-function
+   (edition-target anchor moment context-edition-id mods)
+   (symbol? symbol? short-mom? list? music-or-context-mod?)
+   (edition-mod edition-target anchor (short-mom->moment moment) context-edition-id mods)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; The edition-engraver
 
@@ -582,13 +612,14 @@ Path: ~a" path)))))
             (ly:context-property context 'measurePosition)
             )))
 
-    ; find mods for the current time-spec
+    ; find mods for the current time-step
     (define (find-mods)
       (log-slot "find-mods")
       (let* ((moment (ly:context-current-moment context))
              (timing (ly:context-find context 'Timing))
              (measure (ly:context-property timing 'currentBarNumber))
              (measurePos (ly:context-property timing 'measurePosition))
+             (anchor-list (ly:context-property (ly:context-find context 'Score) 'edition-anchors))
              (current-mods '()))
 
         (define (cm-append l)
@@ -596,9 +627,18 @@ Path: ~a" path)))))
               (set! current-mods (append current-mods l))))
 
         (cm-append (tree-get context-mods (list measure measurePos)))
+        (if (list? anchor-list)
+            (for-each
+             (lambda (p)
+               (let ((marker (car p))
+                     (markmom (ly:moment-sub moment (cdr p))))
+                 (cm-append (tree-get context-mods (list marker markmom)))
+                 )) anchor-list))
 
         current-mods
         ))
+
+    ; if measurePos exceeds current measure length propagate it to the next measure
     (define (propagate-mods)
       (log-slot "propagate-mods")
       (let* ((moment (ly:context-current-moment context))
@@ -830,7 +870,7 @@ Path: ~a" path)))))
                       (lambda (path k val)
                         (let ((plen (length path)))
                           (if (and (= plen 3)(list? val)
-                                   (integer? (list-ref path 0))
+                                   ;(integer? (list-ref path 0)) ; we want to allow anchors
                                    (member (list-ref path 2) edition-targets))
                               (let* ((subpath (list (list-ref path 0)(list-ref path 1)))
                                      (submods (tree-get context-mods subpath)))
