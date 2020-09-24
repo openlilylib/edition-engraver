@@ -450,7 +450,7 @@ Path: ~a" path)))))
   (let* ((mod-path (create-mod-path edition-target measure moment context-edition-id))
          (tmods (tree-get mod-tree mod-path))
          (tmods (if (list? tmods) tmods '())))
-    
+
     (define (wildcard2regex in)
       (let ((regex-string
              (list->string
@@ -466,7 +466,7 @@ Path: ~a" path)))))
                 #\$))))
         (regex-match regex-string)
         ))
-    
+
     (define (regex-match in)
       (let ((regex (make-regexp in regexp/icase)))
         (lambda (s)
@@ -478,7 +478,7 @@ Path: ~a" path)))))
              (else (format "~A" s))
              )))
         ))
-    
+
     ; fetch procedures from path
     ; TODO build procedures from wildcard string
     (define (explode-mod-path mod-path)
@@ -589,10 +589,15 @@ Path: ~a" path)))))
              (timing (ly:context-find context 'Timing))
              (measure (ly:context-property timing 'currentBarNumber))
              (measurePos (ly:context-property timing 'measurePosition))
-             (current-mods (tree-get context-mods (list measure measurePos))))
+             (current-mods '()))
 
-        (if (list? current-mods) current-mods '())
+        (define (cm-append l)
+          (if (and (list? l)(> (length l) 0))
+              (set! current-mods (append current-mods l))))
 
+        (cm-append (tree-get context-mods (list measure measurePos)))
+
+        current-mods
         ))
     (define (propagate-mods)
       (log-slot "propagate-mods")
@@ -849,10 +854,10 @@ Path: ~a" path)))))
             (let ((now (ly:context-now context))
                   (partial (ly:context-property context 'measurePosition)))
               (if (or (ly:version? >= '(2 21 5)) ; start translation-timestep is not called if initialize is called???
-                   ; start-translation-timestep is not called for instant Voices
-                   (ly:moment<? (ly:make-moment 0/4) now)
-                   ; start-translation-timestep is not called on upbeats!
-                   (and (ly:moment? partial)(< (ly:moment-main partial) 0)))
+                      ; start-translation-timestep is not called for instant Voices
+                      (ly:moment<? (ly:make-moment 0/4) now)
+                      ; start-translation-timestep is not called on upbeats!
+                      (and (ly:moment? partial)(< (ly:moment-main partial) 0)))
                   (begin
                    (log-slot "initialize->start-translation-timestep")
                    (start-translation-timestep trans)
