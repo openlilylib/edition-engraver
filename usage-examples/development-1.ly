@@ -114,6 +114,7 @@ modproc = \once \override NoteHead.color = \etc
 % add mods in measure 2 with values green and yellow
 \addModList 2 5/8 #yellow % order of input doesn't matter (but is recommended for clarity)
 \addModList 2 0/8 #green
+\addModList 2 7/8 #'(.8 .4 .7)
 
 % display modlist:
 #(display modlist)
