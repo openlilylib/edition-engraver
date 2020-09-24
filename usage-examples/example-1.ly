@@ -77,6 +77,7 @@
 }
 
 \editionMod test 10 0/4 sing.with.bach.along.Staff \addAnchor stopA
+\editionMod test 15 0/4 sing.with.bach.along.Staff \addAnchor stopA
 % TODO anchor with zero or negative moment
 \editionModAnchor test stopA 10/4 sing.with.bach.along.Staff \once \override NoteHead.color = #red
 \editionModAnchor test stopB 1/4 sing.with.bach.along.Staff \once \override NoteHead.color = #green
