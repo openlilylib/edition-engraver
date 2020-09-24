@@ -71,4 +71,3 @@
   \autoBeamOff
   c''4 a8 bes8 c4 d8 cis | c4 a8 b c4 c
 } \addlyrics { Say what you think, say what you need. }
-

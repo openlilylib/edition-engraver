@@ -844,7 +844,7 @@ Path: ~a" path)))))
             ; so we need to call start-translation-timestep here.
             (let ((now (ly:context-now context))
                   (partial (ly:context-property context 'measurePosition)))
-              (if (or
+              (if (or #t ; start translation-timestep is not called if initialize is called???
                    ; start-translation-timestep is not called for instant Voices
                    (ly:moment<? (ly:make-moment 0/4) now)
                    ; start-translation-timestep is not called on upbeats!
