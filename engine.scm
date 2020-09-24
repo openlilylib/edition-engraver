@@ -72,6 +72,9 @@
 (define (glue-list l sep)
   (string-join (list->strings l) sep 'infix))
 
+
+(define ly:version? (@@ (lily) ly:version?))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; 2. The dynamic-tree will be integrated into (oll-core tree) to avoid this discouraged use of '@@'
 ;;; START dynamic-tree
@@ -842,9 +845,10 @@ Path: ~a" path)))))
             (log-slot "initialize")
             ; if the now-moment is greater than 0, this is an instantly created context,
             ; so we need to call start-translation-timestep here.
+            ; ... with 2.21.5 we need to call start-translation-timestep everytime
             (let ((now (ly:context-now context))
                   (partial (ly:context-property context 'measurePosition)))
-              (if (or #t ; start translation-timestep is not called if initialize is called???
+              (if (or (ly:version? >= '(2 21 5)) ; start translation-timestep is not called if initialize is called???
                    ; start-translation-timestep is not called for instant Voices
                    (ly:moment<? (ly:make-moment 0/4) now)
                    ; start-translation-timestep is not called on upbeats!
