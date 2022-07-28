@@ -55,7 +55,7 @@ editionMod =
     (edition-target measure moment context-edition-id mods)
     (symbol? integer? short-mom? list? music-or-context-mod?)
     ((@ (edition-engraver engine) editionMod) edition-target measure moment context-edition-id
-      #{ ^\markup \box \fontsize #-4 $(format "~A ~A" measure moment) #})
+      #{ ^\markup \box \fontsize #-4 $(format #f "~A ~A" measure moment) #})
     ((@ (edition-engraver engine) editionMod) edition-target measure moment context-edition-id mods)
     ))
 
