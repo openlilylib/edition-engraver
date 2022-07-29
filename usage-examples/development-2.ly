@@ -61,6 +61,7 @@ editionMod =
 
 \addEdition test
 \editionMod test 1 #(ly:make-moment -1/4) Staff \once \override NoteHead.color = #red
+\editionMod test 1 0/4 Staff \once \override NoteHead.color = #green
 \editionMod test 1 4/4 Staff \once \override NoteHead.color = #red
 \editionMod test 1 9/4 Staff { \once \override NoteHead.color = #red <>-\tweak color #red ^X }
 \editionMod test 2 0/4 Staff \once \override Stem.color = #green

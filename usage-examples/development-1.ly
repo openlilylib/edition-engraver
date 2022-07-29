@@ -109,6 +109,7 @@ modproc = \once \override NoteHead.color = \etc
 % proc: ... \once \override NoteHead.color = #val
 \startModList modlist partitur Score #modproc
 % add mods in measure 1 with values red and blue
+\addModList 1 0/8 #green
 \addModList 1 3/8 #red
 \addModList 1 5/8 #blue
 % add mods in measure 2 with values green and yellow
@@ -128,5 +129,3 @@ modproc = \once \override NoteHead.color = \etc
 
 % new Score
 \repeat unfold 4 \relative c'' { bes8 a c b }
-
-
