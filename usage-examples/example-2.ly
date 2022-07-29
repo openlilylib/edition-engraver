@@ -58,7 +58,12 @@
 \editionMod test 1 7/8 Voice \)
 \editionMod test 2 0/4 Score \time 3/4
 \editionMod test 2 0/4 Score \tempo "Allegro" 4=135
-\editionMod test 2 0/4 Voice e''4 % articulations crash right now!
+\editionMod test 2 2/4 Voice ->
+%{
+\editionMod test 2 0/4 Voice e''4 % inserting pitches crashes
+%% Interpreting music...ERROR: In procedure ly:prob-property:
+%% In procedure ly:prob-property: Wrong type argument in position 1 (expecting Prob): ()
+%}
 \editionMod test 2 0/4 Voice ^\p
 \editionMod test 2 0/4 Voice ^\<
 \editionMod test 2 1/4 Lyrics #(make-music 'HyphenEvent)
@@ -71,4 +76,3 @@
   \autoBeamOff
   c''4 a8 bes8 c4 d8 cis | c4 a8 b c4 c
 } \addlyrics { Say what you think, say what you need. }
-
