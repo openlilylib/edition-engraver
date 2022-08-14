@@ -756,7 +756,7 @@ Path: ~a" path)))))
     (define (start-translation-timestep trans)
       (log-slot "start-translation-timestep")
       (if (or (not start-translation-timestep-moment)
-              (ly:moment<? start-translation-timestep-moment (ly:context-now context)))
+              (ly:moment<? start-translation-timestep-moment (ly:context-current-moment context)))
           (for-each
            (lambda (mod)
              (let ((mod-name (if (ly:music? mod) (ly:music-property mod 'name))))
@@ -880,7 +880,7 @@ Path: ~a" path)))))
             (log-slot "initialize")
             ; if the now-moment is greater than 0, this is an instantly created context,
             ; so we need to call start-translation-timestep here.
-            (let ((now (ly:context-now context))
+            (let ((now (ly:context-current-moment context))
                   (partial (ly:context-property context 'measurePosition)))
               (if (or
                    ; start-translation-timestep is not called for instant Voices
@@ -984,4 +984,3 @@ Path: ~a" path)))))
 
        ) ; /make-engraver
     ))
-
