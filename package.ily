@@ -29,7 +29,7 @@
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\version "2.19.36"
+\version "2.23.10"
 % activate edition-engraver module
 #(use-modules (edition-engraver engine))
 

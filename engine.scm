@@ -94,7 +94,7 @@
                  (has-value! tree #t))
                 (begin
                  (ly:input-warning (*location*)
-                   (format "TODO: Format warning about typecheck error in tree-set!
+                   (format #f "TODO: Format warning about typecheck error in tree-set!
 Expected ~a, got ~a" (procedure-name pred?) val))
                  (set! val #f)))
             ;; if no typecheck is set simply set the value
@@ -116,7 +116,7 @@ Expected ~a, got ~a" (procedure-name pred?) val))
             ;; recursively walk path
             (tree-set! create child cpath val)
             (ly:input-warning (*location*)
-              (format "TODO: Format missing path warning in tree-set!
+              (format #f "TODO: Format missing path warning in tree-set!
 Path: ~a" path)))))
   val)
 
@@ -152,8 +152,8 @@ Path: ~a" path)))))
                       ((procedure? v)
                        (let ((pn (procedure-name v))
                              (label (object-property v 'path-label)))
-                         (if label label (format "<~A>" pn))))
-                      (else (format "~A" v))
+                         (if label label (format #f "<~A>" pn))))
+                      (else (format #f "~A" v))
                       )))
       )))
 
@@ -308,7 +308,13 @@ Path: ~a" path)))))
 (define-public (propset? p)(is-a? p <propset>))
 ; propset -> string
 (define-method (propset->string (ps <propset>))
-  (format "~A\\set ~A = ~A" (if (is-once ps) "\\once " "") (string-append (if (get-context ps) (format "~A." (get-context ps)) "") (format "~A" (get-symbol ps))) (get-value ps)))
+  (format #f "~A\\set ~A = ~A"
+          (if (is-once ps) "\\once " "")
+          (string-append
+           (if (get-context ps)
+               (format #f "~A." (get-context ps)) "")
+           (format #f "~A" (get-symbol ps)))
+          (get-value ps)))
 (export propset->string)
 ; display propset
 (define-method (display (o <propset>) port) (display (propset->string o) port))
@@ -347,8 +353,12 @@ Path: ~a" path)))))
 (define-public (propunset? p)(is-a? p <propunset>))
 ; propset -> string
 (define-method (propunset->string (ps <propunset>))
-  (format "~A\\unset ~A" (if (is-once ps) "\\once " "")
-    (string-append (if (get-context ps) (format "~A." (get-context ps)) "") (format "~A" (get-symbol ps)))))
+  (format #f "~A\\unset ~A"
+          (if (is-once ps) "\\once " "")
+          (string-append
+           (if (get-context ps)
+               (format #f "~A." (get-context ps)) "")
+           (format #f "~A" (get-symbol ps)))))
 (export propunset->string)
 ; display propset
 (define-method (display (o <propunset>) port) (display (propunset->string o) port))
@@ -384,11 +394,14 @@ Path: ~a" path)))))
 ; override -> string
 (define-method (oop->string (o <override>))
   (let* ((context-name (get-context o))
-         (context-sname (if context-name (format "~A." context-name) "")))
+         (context-sname (if context-name (format #f "~A." context-name) "")))
     (if (is-revert o)
-        (string-append "\\revert " context-sname (format "~A " (get-grob o)) (format "#'~A" (get-prop o)))
-        (string-append (if (is-once o) "\\once " "") "\\override " context-sname (format "~A " (get-grob o)) (format "#'~A" (get-prop o)) " = " (format "~A" (get-value o)))
-        )))
+        (string-append "\\revert " context-sname (format #f "~A " (get-grob o)) (format #f "#'~A" (get-prop o)))
+        (string-append
+         (if (is-once o) "\\once " "") "\\override " context-sname
+         (format #f "~A " (get-grob o))
+         (format #f "#'~A" (get-prop o)) " = "
+         (format #f"~A" (get-value o))))))
 (export oop->string)
 ; display override
 (define-method (display (o <override>) port) (display (oop->string o) port))
@@ -594,7 +607,7 @@ Path: ~a" path)))))
             (cond
              ((string? s) s)
              ((symbol? s) (symbol->string s))
-             (else (format "~A" s))
+             (else (format #f "~A" s))
              )))
         ))
     ; fetch procedures from path
@@ -756,7 +769,7 @@ Path: ~a" path)))))
     (define (start-translation-timestep trans)
       (log-slot "start-translation-timestep")
       (if (or (not start-translation-timestep-moment)
-              (ly:moment<? start-translation-timestep-moment (ly:context-now context)))
+              (ly:moment<? start-translation-timestep-moment (ly:context-current-moment context)))
           (for-each
            (lambda (mod)
              (let ((mod-name (if (ly:music? mod) (ly:music-property mod 'name))))
@@ -847,7 +860,7 @@ Path: ~a" path)))))
                                 (string-join
                                  (map
                                   (lambda (s)
-                                    (format "~A" s))
+                                    (format #f "~A" s))
                                   context-edition-id) ":"))))
             ;(ly:message "init ~A \"~A\"" context-edition-id (ly:context-id context))
             (for-each
@@ -878,21 +891,10 @@ Path: ~a" path)))))
                ))
 
             (log-slot "initialize")
-            ; if the now-moment is greater than 0, this is an instantly created context,
-            ; so we need to call start-translation-timestep here.
-            (let ((now (ly:context-now context))
-                  (partial (ly:context-property context 'measurePosition)))
-              (if (or
-                   ; start-translation-timestep is not called for instant Voices
-                   (ly:moment<? (ly:make-moment 0/4) now)
-                   ; start-translation-timestep is not called on upbeats!
-                   (and (ly:moment? partial)(< (ly:moment-main partial) 0)))
-                  (begin
-                   (log-slot "initialize->start-translation-timestep")
-                   (start-translation-timestep trans)
-                   ))
-              (set! start-translation-timestep-moment now))
-            ))
+            (begin
+              (log-slot "initialize->start-translation-timestep")
+              (start-translation-timestep trans))
+            (set! start-translation-timestep-moment (ly:context-current-moment context))))
 
        ; paper columns --> breaks
        (acknowledgers ; TODO add acknowledgers from mods
@@ -984,4 +986,3 @@ Path: ~a" path)))))
 
        ) ; /make-engraver
     ))
-

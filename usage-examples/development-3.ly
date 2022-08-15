@@ -36,7 +36,7 @@
 
 \consistToContexts #edition-engraver Score.Staff.Voice.Lyrics
 
-#(define (my-wild-card v) (eq? #\l (string-ref (format "~A" v) 0)))
+#(define (my-wild-card v) (eq? #\l (string-ref (format #f "~A" v) 0)))
 
 \addEdition test
 
@@ -61,4 +61,3 @@
     \editionID fu
   } \repeat unfold 3 \relative { c''4 b bes a }
 >>
-
