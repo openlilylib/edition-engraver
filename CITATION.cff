@@ -1,0 +1,14 @@
+cff-version: 1.1.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: Voigt
+  given-names: Jan-Peter
+  orcid: https://orcid.org/0009-0006-9881-197X
+- family-names: Liska
+  given-names: Urs
+- family-names: Bernard
+  given-names: Andrew
+title:openlilylib/edition-engraver: v2022
+version: old-stable
+date-released: 2025-06-18
+                                
